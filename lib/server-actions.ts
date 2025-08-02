@@ -1,0 +1,494 @@
+"use server"
+
+import { PrismaClient } from "@prisma/client"
+import { revalidatePath } from "next/cache"
+import { verifyPassword, setAuthCookie, clearAuthCookie, getAuthUser } from "@/lib/auth"
+import { redirect } from "next/navigation"
+
+const prisma = new PrismaClient()
+
+// Types
+export interface User {
+  id: string
+  name: string
+  email: string
+  password_hash: string
+  created_at: Date
+}
+
+export interface Category {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface Color {
+  id: string
+  name: string
+  hex: string | null
+}
+
+export interface Size {
+  id: string
+  label: string
+}
+
+export interface Product {
+  id: string
+  name: string
+  description: string | null
+  category_id: string | null
+  solde_percentage: number | null
+  top_price: boolean
+  created_at: Date
+  updated_at: Date
+}
+
+// Auth Actions
+export const loginAdmin = async (email: string, password: string) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    if (!user) {
+      return { success: false, error: "Invalid credentials" }
+    }
+
+    const isPasswordValid = await verifyPassword(password, user.password_hash)
+
+    if (!isPasswordValid) {
+      return { success: false, error: "Invalid credentials" }
+    }
+
+    await setAuthCookie({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    })
+
+    return { success: true, user }
+  } catch (error) {
+    console.error("Login error:", error)
+    return { success: false, error: "Login failed" }
+  }
+}
+
+export const logoutAdmin = async () => {
+  await clearAuthCookie()
+  redirect("/login")
+}
+
+export const getCurrentUser = async () => {
+  return await getAuthUser()
+}
+
+// Category Actions
+export const getCategories = async (): Promise<Category[]> => {
+  try {
+    const result = await prisma.category.findMany()
+    return result
+  } catch (error) {
+    console.error("Get categories error:", error)
+    return []
+  }
+}
+
+export const createCategory = async (
+  name: string,
+  slug: string,
+): Promise<{ success: boolean; category?: Category; error?: string }> => {
+  try {
+    // Check if slug already exists
+    const existing = await prisma.category.findUnique({
+      where: { slug }
+    })
+
+    if (existing) {
+      return { success: false, error: "Slug already exists" }
+    }
+
+    const result = await prisma.category.create({
+      data: { name, slug }
+    })
+
+    revalidatePath("/")
+    return { success: true, category: result }
+  } catch (error) {
+    console.error("Create category error:", error)
+    return { success: false, error: "Failed to create category" }
+  }
+}
+
+export const updateCategory = async (
+  id: string,
+  name: string,
+  slug: string,
+): Promise<{ success: boolean; category?: Category; error?: string }> => {
+  try {
+    // Check if slug already exists (excluding current category)
+    const existing = await prisma.category.findFirst({
+      where: {
+        slug,
+        NOT: { id }
+      }
+    })
+
+    if (existing) {
+      return { success: false, error: "Slug already exists" }
+    }
+
+    const result = await prisma.category.update({
+      where: { id },
+      data: { name, slug }
+    })
+
+    revalidatePath("/")
+    return { success: true, category: result }
+  } catch (error) {
+    console.error("Update category error:", error)
+    return { success: false, error: "Failed to update category" }
+  }
+}
+
+export const deleteCategory = async (id: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.category.delete({
+      where: { id }
+    })
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Delete category error:", error)
+    return { success: false, error: "Failed to delete category" }
+  }
+}
+
+// Color Actions
+export const getColors = async (): Promise<Color[]> => {
+  try {
+    const result = await prisma.color.findMany()
+    return result
+  } catch (error) {
+    console.error("Get colors error:", error)
+    return []
+  }
+}
+
+export const createColor = async (
+  name: string,
+  hex: string,
+): Promise<{ success: boolean; color?: Color; error?: string }> => {
+  try {
+    const result = await prisma.color.create({
+      data: { name, hex }
+    })
+
+    revalidatePath("/")
+    return { success: true, color: result }
+  } catch (error) {
+    console.error("Create color error:", error)
+    return { success: false, error: "Failed to create color" }
+  }
+}
+
+// Size Actions
+export const getSizes = async (): Promise<Size[]> => {
+  try {
+    const result = await prisma.size.findMany()
+    return result
+  } catch (error) {
+    console.error("Get sizes error:", error)
+    return []
+  }
+}
+
+export const createSize = async (label: string): Promise<{ success: boolean; size?: Size; error?: string }> => {
+  try {
+    const result = await prisma.size.create({
+      data: { label }
+    })
+
+    revalidatePath("/")
+    return { success: true, size: result }
+  } catch (error) {
+    console.error("Create size error:", error)
+    return { success: false, error: "Failed to create size" }
+  }
+}
+
+// Product Actions
+export const getProducts = async () => {
+  try {
+    const result = await prisma.product.findMany({
+      include: {
+        category: true,
+        productColors: {
+          include: {
+            color: true,
+            productSizeStocks: {
+              include: {
+                size: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    // Transform to match your existing structure
+    const productsWithVariants = result.map(product => {
+      const variants = product.productColors.map(productColor => ({
+        id: productColor.id,
+        color_id: productColor.color_id,
+        image_url: productColor.image_url,
+        color: productColor.color,
+        sizeStocks: productColor.productSizeStocks.map(sizeStock => ({
+          id: sizeStock.id,
+          size_id: sizeStock.size_id,
+          stock: sizeStock.stock,
+          price: sizeStock.price,
+          size: sizeStock.size
+        }))
+      }))
+
+      const totalStock = variants.reduce(
+        (total, variant) =>
+          total + variant.sizeStocks.reduce((variantTotal, ss) => variantTotal + (ss.stock || 0), 0),
+        0,
+      )
+
+      return {
+        ...product,
+        variants,
+        totalStock,
+        status: totalStock === 0 ? "out_of_stock" : totalStock < 20 ? "low_stock" : "in_stock",
+      }
+    })
+
+    return productsWithVariants
+  } catch (error) {
+    console.error("Get products error:", error)
+    return []
+  }
+}
+
+export const createProduct = async (productData: {
+  name: string
+  description: string
+  category_id: string
+  solde_percentage?: number
+  top_price: boolean
+  colors: Array<{
+    color_id: string
+    image_url: string
+    sizes: Array<{
+      size_id: string
+      stock: number
+      price: number
+    }>
+  }>
+}): Promise<{ success: boolean; product?: any; error?: string }> => {
+  try {
+    // Create product with colors and sizes in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create product
+      const newProduct = await tx.product.create({
+        data: {
+          name: productData.name,
+          description: productData.description,
+          category_id: productData.category_id,
+          solde_percentage: productData.solde_percentage,
+          top_price: productData.top_price,
+        }
+      })
+
+      // Create colors and size stocks
+      for (const colorData of productData.colors) {
+        // Skip if color_id is temporary
+        if (colorData.color_id.startsWith("custom-") || colorData.color_id.startsWith("temp-")) {
+          continue
+        }
+
+        const productColor = await tx.productColor.create({
+          data: {
+            product_id: newProduct.id,
+            color_id: colorData.color_id,
+            image_url: colorData.image_url,
+          }
+        })
+
+        // Create size stocks
+        for (const sizeData of colorData.sizes) {
+          // Skip if size_id is temporary
+          if (sizeData.size_id.startsWith("custom-") || sizeData.size_id.startsWith("temp-")) {
+            continue
+          }
+
+          await tx.productSizeStock.create({
+            data: {
+              product_color_id: productColor.id,
+              size_id: sizeData.size_id,
+              stock: sizeData.stock,
+              price: sizeData.price,
+            }
+          })
+        }
+      }
+
+      return newProduct
+    })
+
+    revalidatePath("/")
+    return { success: true, product: result }
+  } catch (error) {
+    console.error("Create product error:", error)
+    return { success: false, error: "Failed to create product" }
+  }
+}
+
+export const updateProduct = async (id: string, productData: any): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        name: productData.name,
+        description: productData.description,
+        category_id: productData.category_id,
+        solde_percentage: productData.solde_percentage,
+        top_price: productData.top_price,
+        updated_at: new Date(),
+      }
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Update product error:", error)
+    return { success: false, error: "Failed to update product" }
+  }
+}
+
+export const deleteProduct = async (id: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.product.delete({
+      where: { id }
+    })
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Delete product error:", error)
+    return { success: false, error: "Failed to delete product" }
+  }
+}
+
+// Order Actions
+export const getOrders = async () => {
+  try {
+    const result = await prisma.order.findMany({
+      include: {
+        orderItems: {
+          include: {
+            productSizeStock: {
+              include: {
+                productColor: {
+                  include: {
+                    product: true,
+                    color: true
+                  }
+                },
+                size: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    })
+
+    // Transform to match your existing structure
+    const ordersWithItems = result.map(order => {
+      const items = order.orderItems.map(item => ({
+        id: item.id,
+        quantity: item.quantity,
+        price_at_purchase: item.price_at_purchase,
+        product: {
+          id: item.productSizeStock.productColor.product.id,
+          name: item.productSizeStock.productColor.product.name,
+        },
+        color: {
+          id: item.productSizeStock.productColor.color.id,
+          name: item.productSizeStock.productColor.color.name,
+          hex: item.productSizeStock.productColor.color.hex,
+        },
+        size: {
+          id: item.productSizeStock.size.id,
+          label: item.productSizeStock.size.label,
+        },
+        image_url: item.productSizeStock.productColor.image_url,
+      }))
+
+      const total = items.reduce(
+        (sum, item) => sum + Number.parseFloat(item.price_at_purchase.toString() || "0") * item.quantity,
+        0,
+      )
+
+      return {
+        id: order.id,
+        guest_session_id: order.guest_session_id,
+        ref_id: order.ref_id,
+        name: order.name,
+        phone: order.phone,
+        address: order.address,
+        status: order.status,
+        created_at: order.created_at,
+        items,
+        total,
+      }
+    })
+
+    return ordersWithItems
+  } catch (error) {
+    console.error("Get orders error:", error)
+    return []
+  }
+}
+
+export const updateOrderStatus = async (
+  orderId: string,
+  status: "pending" | "shipped" | "delivered" | "cancelled",
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status }
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Update order status error:", error)
+    return { success: false, error: "Failed to update order status" }
+  }
+}
+
+// Utility functions
+export const updateStock = async (
+  productSizeStockId: string,
+  newStock: number,
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.productSizeStock.update({
+      where: { id: productSizeStockId },
+      data: { stock: newStock }
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Update stock error:", error)
+    return { success: false, error: "Failed to update stock" }
+  }
+}

@@ -1,0 +1,165 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  pending
+  shipped
+  delivered
+  cancelled
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(255)
+  email         String   @unique @db.VarChar(255)
+  password_hash String   @db.VarChar(255)
+  created_at    DateTime @default(now())
+
+  @@map("users")
+}
+
+model Category {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @db.VarChar(255)
+  slug     String    @unique @db.VarChar(255)
+  products Product[]
+
+  @@map("categories")
+}
+
+model Color {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @db.VarChar(50)
+  hex           String?        @db.VarChar(10)
+  productColors ProductColor[]
+
+  @@map("colors")
+}
+
+model Size {
+  id                 String              @id @default(uuid()) @db.Uuid
+  label              String              @db.VarChar(10)
+  productSizeStocks  ProductSizeStock[]
+
+  @@map("sizes")
+}
+
+model Product {
+  id               String         @id @default(uuid()) @db.Uuid
+  name             String         @db.VarChar(255)
+  description      String?        @db.Text
+  category_id      String?        @db.Uuid
+  solde_percentage Int?
+  top_price        Boolean        @default(false)
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @default(now()) @updatedAt
+  
+  category         Category?      @relation(fields: [category_id], references: [id])
+  productColors    ProductColor[]
+  likes            Like[]
+
+  @@map("products")
+}
+
+model ProductColor {
+  id                String             @id @default(uuid()) @db.Uuid
+  product_id        String             @db.Uuid
+  color_id          String             @db.Uuid
+  image_url         String?            @db.Text
+  
+  product           Product            @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  color             Color              @relation(fields: [color_id], references: [id])
+  productSizeStocks ProductSizeStock[]
+
+  @@map("product_colors")
+}
+
+model ProductSizeStock {
+  id               String      @id @default(uuid()) @db.Uuid
+  product_color_id String      @db.Uuid
+  size_id          String      @db.Uuid
+  stock            Int         @default(0)
+  price            Decimal     @db.Decimal(10, 2)
+  
+  productColor     ProductColor @relation(fields: [product_color_id], references: [id], onDelete: Cascade)
+  size             Size         @relation(fields: [size_id], references: [id])
+  panelItems       PanelItem[]
+  orderItems       OrderItem[]
+
+  @@map("product_size_stocks")
+}
+
+model GuestUser {
+  session_id String      @id @db.VarChar(255)
+  created_at DateTime    @default(now())
+  expires_at DateTime
+  
+  likes      Like[]
+  panelItems PanelItem[]
+  orders     Order[]
+
+  @@map("guest_users")
+}
+
+model Like {
+  id                String    @id @default(uuid()) @db.Uuid
+  guest_session_id  String    @db.VarChar(255)
+  product_id        String    @db.Uuid
+  liked_at          DateTime  @default(now())
+  
+  guestUser         GuestUser @relation(fields: [guest_session_id], references: [session_id])
+  product           Product   @relation(fields: [product_id], references: [id])
+
+  @@map("likes")
+}
+
+model PanelItem {
+  id                    String           @id @default(uuid()) @db.Uuid
+  guest_session_id      String           @db.VarChar(255)
+  product_size_stock_id String           @db.Uuid
+  quantity              Int
+  added_at              DateTime         @default(now())
+  
+  guestUser             GuestUser        @relation(fields: [guest_session_id], references: [session_id])
+  productSizeStock      ProductSizeStock @relation(fields: [product_size_stock_id], references: [id])
+
+  @@map("panel_items")
+}
+
+model Order {
+  id               String      @id @default(uuid()) @db.Uuid
+  guest_session_id String      @db.VarChar(255)
+  ref_id           String      @unique @db.VarChar(50)
+  name             String      @db.VarChar(255)
+  phone            String      @db.VarChar(50)
+  address          String      @db.Text
+  status           OrderStatus @default(pending)
+  created_at       DateTime    @default(now())
+  
+  guestUser        GuestUser   @relation(fields: [guest_session_id], references: [session_id])
+  orderItems       OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                    String           @id @default(uuid()) @db.Uuid
+  order_id              String           @db.Uuid
+  product_size_stock_id String           @db.Uuid
+  quantity              Int
+  price_at_purchase     Decimal          @db.Decimal(10, 2)
+  
+  order                 Order            @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  productSizeStock      ProductSizeStock @relation(fields: [product_size_stock_id], references: [id])
+
+  @@map("order_items")
+}
