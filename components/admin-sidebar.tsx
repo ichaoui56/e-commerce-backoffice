@@ -16,8 +16,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { LayoutDashboard, Package, FolderOpen, ShoppingCart, Warehouse, Users, LogOut, Store } from "lucide-react"
-import { logoutAdmin } from "@/lib/server-actions"
 import { useRouter, usePathname } from "next/navigation"
+import { SignOut } from "./sign-out"
 
 interface AdminSidebarProps {
   activeSection?: string // Made optional since we derive it from pathname
@@ -171,14 +171,7 @@ export function AdminSidebar({ activeSection, setActiveSection }: AdminSidebarPr
               <p className="text-xs text-gray-600">admin@shahinestore.com</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() => logoutAdmin()}
-            className="w-full justify-start gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
-          </Button>
+          <SignOut/>
         </div>
       </SidebarFooter>
 

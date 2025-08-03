@@ -3,42 +3,24 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useFormState } from "react-dom" // Import from react-dom instead
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Store } from "lucide-react"
-import { loginAdmin } from "@/lib/server-actions"
+import { signInAction } from "@/lib/actions/auth-actions"
+import { FormFieldApp } from "@/components/ui/form-field-app"
+import SubmitButton from "@/components/ui/submit-button"
+import { FormError } from "@/components/ui/form-error"
+import { signInDefaultValues } from "@/lib/zod"
 
 export function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const router = useRouter()
+  const [state, formAction] = useFormState(signInAction, null) // Use useFormState instead
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const result = await loginAdmin(email, password)
-
-      if (result.success) {
-        router.push("/")
-        router.refresh()
-      } else {
-        setError(result.error || "Login failed")
-      }
-    } catch (error) {
-      setError("An unexpected error occurred")
-    } finally {
-      setIsLoading(false)
-    }
+  const formValues = {
+    email: state?.values?.email || signInDefaultValues.email,
+    password: state?.values?.password || signInDefaultValues.password,
   }
 
   return (
@@ -57,38 +39,39 @@ export function LoginPage() {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+          <form action={formAction} className="space-y-4">
+            {state?.errors && (
               <Alert variant="destructive" className="bg-red-50 border-red-200">
-                <AlertDescription className="text-red-800">{error}</AlertDescription>
+                <AlertDescription className="text-red-800">
+                 {Object.entries(state.errors).map(([field, messages]) => 
+                   messages.map((message, index) => 
+                     `${field}: ${message}${index < messages.length - 1 ? '\n' : ''}`
+                   ).join('')
+                 ).join('\n')}
+               </AlertDescription>
               </Alert>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Email Address
-              </Label>
-              <Input
-                id="email"
+              <FormFieldApp
+                defaultValues={formValues}
+                name="email"
+                label="Email Address"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@shahinestore.com"
                 required
                 className="h-11 border-gray-200 focus:border-[#e94491] focus:ring-[#e94491]"
               />
+              <FormError errors={state?.errors?.email} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                Password
-              </Label>
               <div className="relative">
-                <Input
-                  id="password"
+                <FormFieldApp
+                  defaultValues={formValues}
+                  name="password"
+                  label="Password"
                   type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
                   className="h-11 pr-10 border-gray-200 focus:border-[#e94491] focus:ring-[#e94491]"
@@ -97,7 +80,7 @@ export function LoginPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="absolute right-0 top-0 h-11 px-3 hover:bg-transparent"
+                  className="absolute right-0 top-[23px] h-11 px-3 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
@@ -107,15 +90,15 @@ export function LoginPage() {
                   )}
                 </Button>
               </div>
+              <FormError errors={state?.errors?.password} />
             </div>
 
-            <Button
+            <SubmitButton
               type="submit"
-              disabled={isLoading}
               className="w-full h-11 bg-gradient-to-r from-[#e94491] to-[#f472b6] hover:from-[#d63384] hover:to-[#ec4899] text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              {isLoading ? "Signing in..." : "Sign In"}
-            </Button>
+              Sign In
+            </SubmitButton>
           </form>
 
           <div className="mt-6 text-center">

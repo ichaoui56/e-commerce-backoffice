@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Eye, Package, Truck, CheckCircle, XCircle } from "lucide-react"
-import { getOrders, updateOrderStatus } from "@/lib/server-actions"
+import { getOrders, updateOrderStatus } from "@/lib/actions/server-actions"
 
 const getStatusColor = (status: string) => {
   switch (status) {

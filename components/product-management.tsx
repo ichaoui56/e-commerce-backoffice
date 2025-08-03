@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Search, Edit, Trash2, Eye, Filter, Download } from "lucide-react"
 import { ProductForm } from "@/components/product-form"
-import { getProducts, deleteProduct } from "@/lib/server-actions"
+import { getProducts, deleteProduct } from "@/lib/actions/server-actions"
 import Image from "next/image"
 
 const getStatusColor = (status: string) => {

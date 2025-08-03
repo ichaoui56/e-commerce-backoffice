@@ -1,13 +1,12 @@
-import { getAuthUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { InventoryManagement } from "@/components/inventory-management"
+import { auth } from "@/auth"
 
 export default async function InventoryPage() {
-  const user = await getAuthUser();
+const session = await auth()
 
-  if (!user) {
-    redirect("/login")
-  }
-
+    if (!session) {
+        redirect("/login")
+    }
   return <InventoryManagement />
 }

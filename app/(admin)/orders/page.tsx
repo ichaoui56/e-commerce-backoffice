@@ -1,13 +1,13 @@
-import { getAuthUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { OrderManagement } from "@/components/order-management"
+import { auth } from "@/auth"
 
 export default async function OrdersPage() {
-  const user = await getAuthUser();
-
-  if (!user) {
-    redirect("/login")
-  }
+  const session = await auth()
+  
+      if (!session) {
+          redirect("/login")
+      }
 
   return <OrderManagement />
 }

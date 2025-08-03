@@ -1,13 +1,13 @@
-import { getAuthUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { ProductManagement } from "@/components/product-management"
+import { auth } from "@/auth"
 
 export default async function ProductsPage() {
-  const user = await getAuthUser();
-
-  if (!user) {
-    redirect("/login")
-  }
+  const session = await auth()
+  
+      if (!session) {
+          redirect("/login")
+      }
 
   return <ProductManagement />
 }

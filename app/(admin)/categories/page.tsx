@@ -1,13 +1,12 @@
-import { getAuthUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { CategoryManagement } from "@/components/category-management"
+import { auth } from "@/auth"
 
 export default async function CategoriesPage() {
-  const user = await getAuthUser();
+    const session = await auth()
+    if (!session) {
+        redirect("/login")
+    }
 
-  if (!user) {
-    redirect("/login")
-  }
-
-  return <CategoryManagement />
+    return <CategoryManagement />
 }

@@ -1,0 +1,3 @@
+pnpm i 
+pnpm add next-auth@beta 
+pnpm dlx prisma generate       

@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Search, Edit, AlertTriangle, Package } from "lucide-react"
-import { getProducts, updateStock } from "@/lib/server-actions"
+import { getProducts, updateStock } from "@/lib/actions/server-actions"
 
 interface StockUpdateDialogProps {
   item: any

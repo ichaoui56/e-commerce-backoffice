@@ -47,7 +47,7 @@ model Color {
 
 model Size {
   id                 String              @id @default(uuid()) @db.Uuid
-  label              String              @db.VarChar(10)
+  label              String              @unique @db.VarChar(10)
   productSizeStocks  ProductSizeStock[]
 
   @@map("sizes")

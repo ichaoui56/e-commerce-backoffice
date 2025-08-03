@@ -1,13 +1,13 @@
-import { getAuthUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { DashboardOverview } from "@/components/dashboard-overview"
+import { auth } from "@/auth"
 
 export default async function DashboardPage() {
-  const user = await getAuthUser();
+    const session = await auth()
 
-  if (!user) {
-    redirect("/login")
-  }
+    if (!session) {
+        redirect("/login")
+    }
 
-  return <DashboardOverview />
+    return <DashboardOverview />
 }

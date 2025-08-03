@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { BarChart3, Package, ShoppingCart, TrendingUp, AlertTriangle, DollarSign, Eye } from "lucide-react"
 import { SalesChart } from "@/components/sales-chart"
-import { getProducts, getOrders, getCategories } from "@/lib/server-actions"
+import { getProducts, getOrders, getCategories } from "@/lib/actions/server-actions"
 
 export function DashboardOverview() {
   const [stats, setStats] = useState({

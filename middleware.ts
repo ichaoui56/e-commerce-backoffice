@@ -1,20 +1,16 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { updateSession } from "@/lib/auth"
 
-export async function middleware(request: NextRequest) {
-  // Skip middleware for API routes, static files, and public assets
-  if (
-    request.nextUrl.pathname.startsWith("/api") ||
-    request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/favicon.ico") ||
-    request.nextUrl.pathname.startsWith("/login")
-  ) {
-    return NextResponse.next()
-  }
+import { NextResponse } from "next/server"
 
-  return await updateSession(request)
+async function middleware(request: any) {
+
+  return NextResponse.next()
 }
 
+export default middleware
+
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    // Match all paths except static files and API routes
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 }

@@ -25,7 +25,7 @@ import {
   type Category,
   type Color,
   type Size,
-} from "@/lib/server-actions"
+} from "@/lib/actions/server-actions"
 
 interface ProductFormProps {
   product?: any

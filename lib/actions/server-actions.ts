@@ -1,9 +1,8 @@
 "use server"
 
+import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
 import { revalidatePath } from "next/cache"
-import { verifyPassword, setAuthCookie, clearAuthCookie, getAuthUser } from "@/lib/auth"
-import { redirect } from "next/navigation"
 
 const prisma = new PrismaClient()
 
@@ -44,43 +43,8 @@ export interface Product {
   updated_at: Date
 }
 
-// Auth Actions
-export const loginAdmin = async (email: string, password: string) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { email }
-    })
-
-    if (!user) {
-      return { success: false, error: "Invalid credentials" }
-    }
-
-    const isPasswordValid = await verifyPassword(password, user.password_hash)
-
-    if (!isPasswordValid) {
-      return { success: false, error: "Invalid credentials" }
-    }
-
-    await setAuthCookie({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-    })
-
-    return { success: true, user }
-  } catch (error) {
-    console.error("Login error:", error)
-    return { success: false, error: "Login failed" }
-  }
-}
-
-export const logoutAdmin = async () => {
-  await clearAuthCookie()
-  redirect("/login")
-}
-
 export const getCurrentUser = async () => {
-  return await getAuthUser()
+  return await auth()
 }
 
 // Category Actions

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Search, Edit, Trash2, FolderOpen } from "lucide-react"
-import { getCategories, createCategory, updateCategory, deleteCategory, type Category } from "@/lib/server-actions"
+import { getCategories, createCategory, updateCategory, deleteCategory, type Category } from "@/lib/actions/server-actions"
 
 interface CategoryFormProps {
   category?: Category
