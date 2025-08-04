@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Search, Edit, Trash2, Eye, Filter, Download } from "lucide-react"
-import { ProductForm } from "@/components/product-form"
+import { ProductDetails } from "@/components/product-details"
 import { getProducts, deleteProduct } from "@/lib/actions/server-actions"
 import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -28,9 +30,9 @@ const getStatusColor = (status: string) => {
 export function ProductManagement() {
   const [products, setProducts] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<any>(null)
+  const [viewingProduct, setViewingProduct] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     loadProducts()
@@ -84,20 +86,12 @@ export function ProductManagement() {
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-[#e94491] hover:bg-[#d63384]">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
-              </DialogHeader>
-              <ProductForm onClose={() => setIsAddDialogOpen(false)} onSuccess={loadProducts} />
-            </DialogContent>
-          </Dialog>
+          <Link href="/products/add">
+            <Button className="bg-[#e94491] hover:bg-[#d63384]">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Product
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -185,26 +179,24 @@ export function ProductManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={() => setEditingProduct(product)}>
-                            <Edit className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" onClick={() => setViewingProduct(product)}>
+                            <Eye className="w-4 h-4" />
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
-                            <DialogTitle>Edit Product</DialogTitle>
+                            <DialogTitle>Product Details</DialogTitle>
                           </DialogHeader>
-                          <ProductForm
-                            product={editingProduct}
-                            onClose={() => setEditingProduct(null)}
-                            onSuccess={loadProducts}
-                          />
+                          {viewingProduct && <ProductDetails product={viewingProduct} />}
                         </DialogContent>
                       </Dialog>
+                      <Link href={`/products/edit/${product.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="sm"

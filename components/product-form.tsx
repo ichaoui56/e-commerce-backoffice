@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { X, Plus, Trash2, Upload } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   getCategories,
   getColors,
@@ -29,8 +29,6 @@ import {
 
 interface ProductFormProps {
   product?: any
-  onClose: () => void
-  onSuccess?: () => void
 }
 
 interface ColorSize {
@@ -48,7 +46,11 @@ interface SelectedColor {
   sizes: ColorSize[]
 }
 
-export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
+export function ProductForm({ product }: ProductFormProps) {
+  const router = useRouter()
+  // Keep track of whether we're in edit mode
+  const isEditMode = Boolean(product?.id)
+
   const [formData, setFormData] = useState({
     name: product?.name || "",
     description: product?.description || "",
@@ -72,50 +74,68 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
     loadData()
   }, [])
 
+  // Separate useEffect for product data to ensure it doesn't get lost
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name || "",
+        description: product.description || "",
+        category_id: product.category_id || "",
+        solde_percentage: product.solde_percentage || "",
+        top_price: product.top_price || false,
+      })
+    }
+  }, [product])
+
   const loadData = async () => {
-    const [categoriesData, colorsData, sizesData] = await Promise.all([getCategories(), getColors(), getSizes()])
+    try {
+      const [categoriesData, colorsData, sizesData] = await Promise.all([getCategories(), getColors(), getSizes()])
 
-    setCategories(categoriesData)
-    setAllColors(colorsData)
-    setAllSizes(sizesData)
+      setCategories(categoriesData)
+      setAllColors(colorsData)
+      setAllSizes(sizesData)
 
-    // If editing, populate existing data
-    if (product?.variants) {
-      const existingColors: SelectedColor[] = []
+      // If editing, populate existing data
+      if (product?.variants) {
+        const existingColors: SelectedColor[] = []
 
-      product.variants.forEach((variant: any) => {
-        const existingColor = existingColors.find((c) => c.id === variant.color_id)
+        product.variants.forEach((variant: any) => {
+          const existingColor = existingColors.find((c) => c.id === variant.color_id)
 
-        if (existingColor) {
-          // Add sizes to existing color
-          variant.sizeStocks.forEach((sizeStock: any) => {
-            existingColor.sizes.push({
+          if (existingColor) {
+            // Add sizes to existing color
+            variant.sizeStocks.forEach((sizeStock: any) => {
+              existingColor.sizes.push({
+                id: sizeStock.size_id,
+                label: sizeStock.size?.label || "",
+                stock: sizeStock.stock,
+                price: Number(sizeStock.price),
+              })
+            })
+          } else {
+            // Create new color with its sizes
+            const colorSizes: ColorSize[] = variant.sizeStocks.map((sizeStock: any) => ({
               id: sizeStock.size_id,
               label: sizeStock.size?.label || "",
               stock: sizeStock.stock,
               price: Number(sizeStock.price),
+            }))
+
+            existingColors.push({
+              id: variant.color_id,
+              name: variant.color?.name || "",
+              hex: variant.color?.hex || "",
+              image_url: variant.image_url || "",
+              sizes: colorSizes,
             })
-          })
-        } else {
-          // Create new color with its sizes
-          const colorSizes: ColorSize[] = variant.sizeStocks.map((sizeStock: any) => ({
-            id: sizeStock.size_id,
-            label: sizeStock.size?.label || "",
-            stock: sizeStock.stock,
-            price: Number(sizeStock.price),
-          }))
+          }
+        })
 
-          existingColors.push({
-            id: variant.color_id,
-            name: variant.color?.name || "",
-            hex: variant.color?.hex || "",
-            image_url: variant.image_url || "",
-            sizes: colorSizes,
-          })
-        }
-      })
-
-      setSelectedColors(existingColors)
+        setSelectedColors(existingColors)
+      }
+    } catch (error) {
+      console.error("Error loading data:", error)
+      alert("Failed to load form data")
     }
   }
 
@@ -144,7 +164,6 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
     if (file) {
       // In a real app, you would upload to cloud storage here
       const imageUrl = URL.createObjectURL(file)
-
       setSelectedColors((prev) =>
         prev.map((color) => (color.id === colorId ? { ...color, image_url: imageUrl } : color)),
       )
@@ -166,7 +185,6 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           if (color.sizes.find((s) => s.id === sizeId)) {
             return color
           }
-
           return {
             ...color,
             sizes: [
@@ -188,37 +206,41 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
   const addCustomSizeToColor = async (colorId: string, customSize: string) => {
     if (!customSize.trim()) return
 
-    setSelectedColors((prev) =>
-      prev.map((color) => {
-        if (color.id === colorId) {
-          // Check if custom size already exists for this color
-          if (color.sizes.find((s) => s.label === customSize.trim())) {
-            return color
-          }
-
-          // Create the size in database if it doesn't exist
-          createSize(customSize.trim()).then((result) => {
-            if (result.success && result.size) {
-              setAllSizes((prev) => [...prev, result.size!])
+    try {
+      // Create the size in database first
+      const result = await createSize(customSize.trim())
+      if (result.success && result.size) {
+        setAllSizes((prev) => [...prev, result.size!])
+        setSelectedColors((prev) =>
+          prev.map((color) => {
+            if (color.id === colorId) {
+              // Check if custom size already exists for this color
+              if (color.sizes.find((s) => s.label === customSize.trim())) {
+                return color
+              }
+              return {
+                ...color,
+                sizes: [
+                  ...color.sizes,
+                  {
+                    id: result.size!.id,
+                    label: result.size!.label,
+                    stock: 0,
+                    price: 0,
+                  },
+                ],
+              }
             }
-          })
-
-          return {
-            ...color,
-            sizes: [
-              ...color.sizes,
-              {
-                id: `temp-${Date.now()}-${Math.random()}`, // Temporary ID, will be replaced when saved
-                label: customSize.trim(),
-                stock: 0,
-                price: 0,
-              },
-            ],
-          }
-        }
-        return color
-      }),
-    )
+            return color
+          }),
+        )
+      } else {
+        alert(result.error || "Failed to create size")
+      }
+    } catch (error) {
+      console.error("Error creating size:", error)
+      alert("Failed to create custom size")
+    }
   }
 
   const removeSizeFromColor = (colorId: string, sizeId: string) => {
@@ -287,6 +309,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
         alert(result.error || "Failed to create color")
       }
     } catch (error) {
+      console.error("Error creating color:", error)
       alert("An error occurred while creating the color")
     }
   }
@@ -299,6 +322,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
       // Validate required fields
       if (!formData.name || !formData.category_id || selectedColors.length === 0) {
         alert("Please fill in all required fields and select at least one color.")
+        setIsLoading(false)
         return
       }
 
@@ -306,6 +330,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
       const colorsWithoutSizes = selectedColors.filter((color) => color.sizes.length === 0)
       if (colorsWithoutSizes.length > 0) {
         alert(`Please add at least one size for: ${colorsWithoutSizes.map((c) => c.name).join(", ")}`)
+        setIsLoading(false)
         return
       }
 
@@ -326,19 +351,24 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
       }
 
       let result
-      if (product) {
+      if (isEditMode && product?.id) {
+        console.log("Updating product:", product.id, productData)
         result = await updateProduct(product.id, productData)
       } else {
+        console.log("Creating product:", productData)
         result = await createProduct(productData)
       }
 
       if (result.success) {
-        onSuccess?.()
-        onClose()
+        console.log("Product saved successfully:", result)
+        // Navigate back to products page
+        router.push("/products")
       } else {
+        console.error("Failed to save product:", result.error)
         alert(result.error || "Failed to save product")
       }
     } catch (error) {
+      console.error("Error saving product:", error)
       alert("An error occurred while saving the product")
     } finally {
       setIsLoading(false)
@@ -350,188 +380,230 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto">
-      {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter product name"
-                required
+    <div className="space-y-8">
+      {/* Progress Indicator */}
+      <div className="bg-gradient-to-r from-[#e94491] to-[#f472b6] p-6 rounded-xl text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">{isEditMode ? "Edit Product" : "Create New Product"}</h2>
+            <p className="text-white/80">
+              {isEditMode ? "Update your product information" : "Add a new product to your inventory"}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">{getTotalVariants()}</div>
+            <div className="text-sm text-white/80">Total Variants</div>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Basic Information */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold">1</span>
+              </div>
+              Basic Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-8 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
+                  Product Name *
+                </Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter product name"
+                  className="h-12 border-2 border-gray-200 focus:border-[#e94491] transition-colors"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category" className="text-sm font-semibold text-gray-700">
+                  Category *
+                </Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, category_id: value }))}
+                >
+                  <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-[#e94491]">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter product description"
+                rows={4}
+                className="border-2 border-gray-200 focus:border-[#e94491] transition-colors resize-none"
               />
             </div>
-            <div>
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.category_id}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, category_id: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="discount" className="text-sm font-semibold text-gray-700">
+                  Discount (%)
+                </Label>
+                <Input
+                  id="discount"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.solde_percentage}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, solde_percentage: e.target.value }))}
+                  placeholder="0"
+                  className="h-12 border-2 border-gray-200 focus:border-[#e94491] transition-colors"
+                />
+              </div>
+              <div className="flex items-center space-x-3 pt-8">
+                <Switch
+                  id="top-product"
+                  checked={formData.top_price}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, top_price: checked }))}
+                  className="data-[state=checked]:bg-[#e94491]"
+                />
+                <Label htmlFor="top-product" className="text-sm font-semibold text-gray-700">
+                  Mark as Top Product
+                </Label>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Color Selection */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold">2</span>
+              </div>
+              Colors & Variants *
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-8 space-y-6">
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-gray-700">Add Color</Label>
+
+              {/* Existing Colors Dropdown */}
+              <Select onValueChange={handleColorAdd}>
+                <SelectTrigger className="h-12 border-2 border-gray-200 focus:border-[#e94491]">
+                  <SelectValue placeholder="Select from existing colors" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {allColors
+                    .filter((color) => !selectedColors.find((sc) => sc.id === color.id))
+                    .map((color) => (
+                      <SelectItem key={color.id} value={color.id}>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-5 h-5 rounded-full border-2 border-gray-300 shadow-sm"
+                            style={{ backgroundColor: color.hex || "#000000" }}
+                          />
+                          <span className="font-medium">{color.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
 
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter product description"
-              rows={4}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="discount">Discount (%)</Label>
-              <Input
-                id="discount"
-                type="number"
-                min="0"
-                max="100"
-                value={formData.solde_percentage}
-                onChange={(e) => setFormData((prev) => ({ ...prev, solde_percentage: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
-            <div className="flex items-center space-x-2 pt-6">
-              <Switch
-                id="top-product"
-                checked={formData.top_price}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, top_price: checked }))}
-              />
-              <Label htmlFor="top-product">Top Product</Label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Color Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Colors & Sizes *</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <Label>Add Color</Label>
-
-            {/* Existing Colors Dropdown */}
-            <Select onValueChange={handleColorAdd}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select from existing colors" />
-              </SelectTrigger>
-              <SelectContent>
-                {allColors
-                  .filter((color) => !selectedColors.find((sc) => sc.id === color.id))
-                  .map((color) => (
-                    <SelectItem key={color.id} value={color.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-4 h-4 rounded-full border"
-                          style={{ backgroundColor: color.hex || "#000000" }}
-                        />
-                        {color.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-
-            {/* Custom Color Creation */}
-            {!isAddingCustomColor ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAddingCustomColor(true)}
-                className="w-full border-dashed border-[#e94491] text-[#e94491] hover:bg-[#e94491]/10"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Custom Color
-              </Button>
-            ) : (
-              <Card className="border-[#e94491] bg-[#e94491]/5">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-semibold">Create New Color</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setIsAddingCustomColor(false)
-                        setCustomColorData({ name: "", hex: "#000000" })
-                      }}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="custom-color-name" className="text-sm">
-                        Color Name
-                      </Label>
-                      <Input
-                        id="custom-color-name"
-                        value={customColorData.name}
-                        onChange={(e) => setCustomColorData((prev) => ({ ...prev, name: e.target.value }))}
-                        placeholder="e.g., Forest Green, Navy Blue"
-                        className="mt-1"
-                      />
+              {/* Custom Color Creation */}
+              {!isAddingCustomColor ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddingCustomColor(true)}
+                  className="w-full h-12 border-2 border-dashed border-[#e94491] text-[#e94491] hover:bg-[#e94491]/10 transition-all duration-200"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Custom Color
+                </Button>
+              ) : (
+                <Card className="border-2 border-[#e94491] bg-gradient-to-r from-[#e94491]/5 to-[#f472b6]/5">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-lg font-semibold text-gray-800">Create New Color</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingCustomColor(false)
+                          setCustomColorData({ name: "", hex: "#000000" })
+                        }}
+                        className="hover:bg-red-100 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
-
-                    <div>
-                      <Label htmlFor="custom-color-hex" className="text-sm">
-                        Color
-                      </Label>
-                      <div className="flex gap-2 mt-1">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="custom-color-name" className="text-sm font-semibold text-gray-700">
+                          Color Name
+                        </Label>
                         <Input
-                          id="custom-color-hex"
-                          type="color"
-                          value={customColorData.hex}
-                          onChange={(e) => setCustomColorData((prev) => ({ ...prev, hex: e.target.value }))}
-                          className="w-16 h-10 p-1 border rounded"
-                        />
-                        <Input
-                          value={customColorData.hex}
-                          onChange={(e) => setCustomColorData((prev) => ({ ...prev, hex: e.target.value }))}
-                          placeholder="#000000"
-                          className="flex-1"
+                          id="custom-color-name"
+                          value={customColorData.name}
+                          onChange={(e) => setCustomColorData((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g., Forest Green, Navy Blue"
+                          className="h-12 border-2 border-gray-200 focus:border-[#e94491]"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="custom-color-hex" className="text-sm font-semibold text-gray-700">
+                          Color
+                        </Label>
+                        <div className="flex gap-3">
+                          <Input
+                            id="custom-color-hex"
+                            type="color"
+                            value={customColorData.hex}
+                            onChange={(e) => setCustomColorData((prev) => ({ ...prev, hex: e.target.value }))}
+                            className="w-16 h-12 p-1 border-2 border-gray-200 rounded-lg cursor-pointer"
+                          />
+                          <Input
+                            value={customColorData.hex}
+                            onChange={(e) => setCustomColorData((prev) => ({ ...prev, hex: e.target.value }))}
+                            placeholder="#000000"
+                            className="flex-1 h-12 border-2 border-gray-200 focus:border-[#e94491]"
+                          />
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center gap-3 p-4 bg-white rounded-lg border">
                       <div
-                        className="w-8 h-8 rounded-full border-2 border-gray-300 shadow-sm"
+                        className="w-12 h-12 rounded-full border-2 border-gray-300 shadow-lg"
                         style={{ backgroundColor: customColorData.hex }}
                       />
-                      <span className="text-sm text-gray-600">Preview: {customColorData.name || "Unnamed Color"}</span>
+                      <div>
+                        <div className="font-semibold text-gray-800">{customColorData.name || "Unnamed Color"}</div>
+                        <div className="text-sm text-gray-500">{customColorData.hex}</div>
+                      </div>
                     </div>
-
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-3">
                       <Button
                         type="button"
                         onClick={handleCustomColorAdd}
-                        className="bg-[#e94491] hover:bg-[#d63384] flex-1"
+                        className="bg-[#e94491] hover:bg-[#d63384] flex-1 h-12"
                         disabled={!customColorData.name.trim()}
                       >
                         Add Color
@@ -543,235 +615,274 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
                           setIsAddingCustomColor(false)
                           setCustomColorData({ name: "", hex: "#000000" })
                         }}
+                        className="h-12"
                       >
                         Cancel
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Selected Colors */}
-          {selectedColors.length > 0 && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label>Selected Colors ({selectedColors.length})</Label>
-                <Badge variant="outline" className="bg-[#e94491]/10 text-[#e94491]">
-                  Total Variants: {getTotalVariants()}
-                </Badge>
-              </div>
-
-              {selectedColors.map((color) => (
-                <Card key={color.id} className="border-l-4" style={{ borderLeftColor: color.hex }}>
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full border-2 border-gray-300"
-                          style={{ backgroundColor: color.hex }}
-                        />
-                        <div>
-                          <h4 className="font-semibold text-lg">{color.name}</h4>
-                          <p className="text-sm text-gray-600">{color.sizes.length} sizes configured</p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleColorRemove(color.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {/* Image Upload */}
-                    <div>
-                      <Label className="text-sm font-medium">Image for {color.name}</Label>
-                      {color.image_url ? (
-                        <div className="relative mt-2">
-                          <Image
-                            src={color.image_url || "/placeholder.svg"}
-                            alt={`${color.name} variant`}
-                            width={120}
-                            height={120}
-                            className="w-full h-32 object-cover rounded-lg border"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-2 right-2 h-8 w-8 p-0"
-                            onClick={() => removeColorImage(color.id)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mt-2">
-                          <Label htmlFor={`image-${color.id}`} className="cursor-pointer">
-                            <Upload className="w-10 h-10 mx-auto text-gray-400 mb-2" />
-                            <span className="text-sm text-gray-600">Upload image for {color.name}</span>
-                          </Label>
-                          <Input
-                            id={`image-${color.id}`}
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(color.id, e)}
-                            className="hidden"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Size Management for this Color */}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Sizes for {color.name}</Label>
-
-                      {/* Add Size Options */}
-                      <div className="flex gap-2">
-                        <Select onValueChange={(sizeId) => addSizeToColor(color.id, sizeId)}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Add existing size" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allSizes
-                              .filter((size) => !color.sizes.find((cs) => cs.id === size.id))
-                              .map((size) => (
-                                <SelectItem key={size.id} value={size.id}>
-                                  {size.label}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-
-                        <div className="flex gap-1">
-                          <Input
-                            placeholder="Custom size (e.g., 38, XS)"
-                            className="w-40"
-                            onKeyPress={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault()
-                                const input = e.target as HTMLInputElement
-                                addCustomSizeToColor(color.id, input.value)
-                                input.value = ""
-                              }
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              const input = (e.target as HTMLElement).parentElement?.querySelector(
-                                "input",
-                              ) as HTMLInputElement
-                              if (input) {
-                                addCustomSizeToColor(color.id, input.value)
-                                input.value = ""
-                              }
-                            }}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Sizes Table for this Color */}
-                      {color.sizes.length > 0 && (
-                        <div className="border rounded-lg overflow-hidden">
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="bg-gray-50">
-                                <TableHead className="w-24">Size</TableHead>
-                                <TableHead className="w-32">Price ($)</TableHead>
-                                <TableHead className="w-32">Stock</TableHead>
-                                <TableHead className="w-16">Action</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {color.sizes.map((size) => (
-                                <TableRow key={size.id}>
-                                  <TableCell>
-                                    <Badge variant="outline" className="font-medium">
-                                      {size.label}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      value={size.price}
-                                      onChange={(e) =>
-                                        updateColorSize(color.id, size.id, "price", Number(e.target.value))
-                                      }
-                                      className="w-full"
-                                      placeholder="0.00"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={size.stock}
-                                      onChange={(e) =>
-                                        updateColorSize(color.id, size.id, "stock", Number(e.target.value))
-                                      }
-                                      className="w-full"
-                                      placeholder="0"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => removeSizeFromColor(color.id, size.id)}
-                                      className="text-red-600 hover:text-red-700"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-
-                      {color.sizes.length === 0 && (
-                        <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                          No sizes added for {color.name} yet
-                        </div>
-                      )}
-                    </div>
                   </CardContent>
                 </Card>
-              ))}
+              )}
             </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Form Actions */}
-      <div className="flex justify-end space-x-4 pt-6 border-t">
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={isLoading || selectedColors.length === 0 || getTotalVariants() === 0}
-          className="bg-[#e94491] hover:bg-[#d63384]"
-        >
-          {isLoading ? "Saving..." : product ? "Update Product" : "Create Product"}
-        </Button>
-      </div>
-    </form>
+            {/* Selected Colors */}
+            {selectedColors.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <Label className="text-lg font-semibold text-gray-800">
+                    Selected Colors ({selectedColors.length})
+                  </Label>
+                  <Badge className="bg-[#e94491] text-white px-4 py-2 text-sm font-semibold">
+                    Total Variants: {getTotalVariants()}
+                  </Badge>
+                </div>
+
+                {selectedColors.map((color, index) => (
+                  <Card
+                    key={color.id}
+                    className="border-l-8 shadow-lg bg-gradient-to-r from-white to-gray-50/50"
+                    style={{ borderLeftColor: color.hex }}
+                  >
+                    <CardHeader className="pb-4 bg-gradient-to-r from-gray-50 to-white">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            <div
+                              className="w-16 h-16 rounded-full border-4 border-white shadow-lg"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#e94491] text-white rounded-full flex items-center justify-center text-xs font-bold">
+                              {index + 1}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-800">{color.name}</h4>
+                            <p className="text-sm text-gray-600 flex items-center gap-2">
+                              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                              {color.sizes.length} sizes configured
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleColorRemove(color.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 p-3"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6 p-6">
+                      {/* Image Upload */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold text-gray-700">Product Image for {color.name}</Label>
+                        {color.image_url ? (
+                          <div className="relative group">
+                            <Image
+                              src={color.image_url || "/placeholder.svg"}
+                              alt={`${color.name} variant`}
+                              width={200}
+                              height={200}
+                              className="w-full h-48 object-cover rounded-xl border-4 border-gray-200 shadow-lg"
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => removeColorImage(color.id)}
+                                className="bg-red-500 hover:bg-red-600"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Remove Image
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#e94491] transition-colors bg-gradient-to-br from-gray-50 to-white">
+                            <Label htmlFor={`image-${color.id}`} className="cursor-pointer">
+                              <Upload className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                              <div className="text-lg font-semibold text-gray-600 mb-2">
+                                Upload image for {color.name}
+                              </div>
+                              <div className="text-sm text-gray-500">Click to browse or drag and drop</div>
+                            </Label>
+                            <Input
+                              id={`image-${color.id}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(color.id, e)}
+                              className="hidden"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Size Management */}
+                      <div className="space-y-4">
+                        <Label className="text-sm font-semibold text-gray-700">Size & Pricing for {color.name}</Label>
+
+                        {/* Add Size Options */}
+                        <div className="flex gap-3">
+                          <Select onValueChange={(sizeId) => addSizeToColor(color.id, sizeId)}>
+                            <SelectTrigger className="flex-1 h-12 border-2 border-gray-200 focus:border-[#e94491]">
+                              <SelectValue placeholder="Add existing size" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allSizes
+                                .filter((size) => !color.sizes.find((cs) => cs.id === size.id))
+                                .map((size) => (
+                                  <SelectItem key={size.id} value={size.id}>
+                                    {size.label}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Custom size (e.g., 38, XS)"
+                              className="w-48 h-12 border-2 border-gray-200 focus:border-[#e94491]"
+                              onKeyPress={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  const input = e.target as HTMLInputElement
+                                  addCustomSizeToColor(color.id, input.value)
+                                  input.value = ""
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                const input = (e.target as HTMLElement).parentElement?.querySelector(
+                                  "input",
+                                ) as HTMLInputElement
+                                if (input) {
+                                  addCustomSizeToColor(color.id, input.value)
+                                  input.value = ""
+                                }
+                              }}
+                              className="h-12 px-4 border-2 border-[#e94491] text-[#e94491] hover:bg-[#e94491] hover:text-white"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Sizes Table */}
+                        {color.sizes.length > 0 && (
+                          <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-gradient-to-r from-gray-100 to-gray-50">
+                                  <TableHead className="font-semibold text-gray-700 py-4">Size</TableHead>
+                                  <TableHead className="font-semibold text-gray-700 py-4">Price ($)</TableHead>
+                                  <TableHead className="font-semibold text-gray-700 py-4">Stock</TableHead>
+                                  <TableHead className="font-semibold text-gray-700 py-4">Action</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {color.sizes.map((size) => (
+                                  <TableRow key={size.id} className="hover:bg-gray-50 transition-colors">
+                                    <TableCell className="py-4">
+                                      <Badge
+                                        variant="outline"
+                                        className="font-semibold text-sm px-3 py-1 border-2"
+                                        style={{ borderColor: color.hex, color: color.hex }}
+                                      >
+                                        {size.label}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={size.price}
+                                        onChange={(e) =>
+                                          updateColorSize(color.id, size.id, "price", Number(e.target.value))
+                                        }
+                                        className="w-full h-10 border-2 border-gray-200 focus:border-[#e94491]"
+                                        placeholder="0.00"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={size.stock}
+                                        onChange={(e) =>
+                                          updateColorSize(color.id, size.id, "stock", Number(e.target.value))
+                                        }
+                                        className="w-full h-10 border-2 border-gray-200 focus:border-[#e94491]"
+                                        placeholder="0"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeSizeFromColor(color.id, size.id)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+
+                        {color.sizes.length === 0 && (
+                          <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+                            <div className="text-lg font-semibold mb-2">No sizes added yet</div>
+                            <div className="text-sm">Add sizes for {color.name} to create variants</div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-4 pt-8 border-t-2 border-gray-200">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/products")}
+            className="h-12 px-8 border-2 border-gray-300 hover:bg-gray-50"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isLoading || selectedColors.length === 0 || getTotalVariants() === 0}
+            className="bg-gradient-to-r from-[#e94491] to-[#f472b6] hover:from-[#d63384] to-[#e94491] h-12 px-8 font-semibold shadow-lg disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Saving...
+              </>
+            ) : isEditMode ? (
+              "Update Product"
+            ) : (
+              "Create Product"
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }

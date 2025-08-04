@@ -7,8 +7,9 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "db:seed": "ts-node --esm prisma/seed.ts",
-    "db:seed:sizes": "ts-node --esm prisma/seed-sizes.js"
+    "db:seed": "ts-node --esm prisma/seed.js",
+    "db:seed:sizes": "ts-node --esm prisma/seed-sizes.js",
+    "db:seed:categories": "ts-node --esm prisma/seed-categories.js"
 
   },
   "dependencies": {
