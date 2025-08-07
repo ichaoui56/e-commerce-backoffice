@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "build": "next build",
+		"prisma:install": "prisma generate",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
     "db:seed": "ts-node --esm prisma/seed.js",
     "db:seed:sizes": "ts-node --esm prisma/seed-sizes.js",
-    "db:seed:categories": "ts-node --esm prisma/seed-categories.js"
+    "db:seed:categories": "ts-node --esm prisma/seed-categories.js",
+    "ily": "rm -rf .next && next build && next start"
 
   },
   "dependencies": {
