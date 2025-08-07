@@ -6,7 +6,7 @@ import { CredentialsSignin } from "next-auth"
 import { signInSchema } from "./lib/zod"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,
+  trustHost: process.env.NODE_ENV !== "production",
   providers: [
     Credentials({
       credentials: {
