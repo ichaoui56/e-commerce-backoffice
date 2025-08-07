@@ -5,7 +5,7 @@ import { redirect } from "next/navigation"
 export default async function Login() {
   const session = await auth()
   if (session) {
-    redirect("/")
+    redirect("/dashboard")
   }
 
   return <LoginPage />
