@@ -11,7 +11,6 @@
     "db:seed:sizes": "ts-node --esm prisma/seed-sizes.js",
     "db:seed:categories": "ts-node --esm prisma/seed-categories.js",
     "ily": "rm -rf .next && next build && next start"
-
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "latest",
@@ -55,6 +54,7 @@
     "@tidbcloud/serverless": "latest",
     "@types/pg": "latest",
     "@types/sql.js": "latest",
+    "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "latest",
     "@vercel/postgres": "latest",
     "@xata.io/client": "latest",

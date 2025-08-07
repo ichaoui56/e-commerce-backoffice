@@ -6,6 +6,8 @@ import { saltAndHashPassword } from "@/lib/password"
 import { createUser, getUserFromDb } from "@/lib/auth-db"
 import { signIn, signOut } from "@/auth"
 import { AuthError } from "next-auth"
+import { ratelimit } from "@/lib/ratelimit"
+import { headers } from "next/headers"
 
 export type FormState = {
   errors?: {
@@ -14,7 +16,6 @@ export type FormState = {
     name?: string[]
   }
   message?: string
-  // Add values to persist form data
   values?: {
     email?: string
     password?: string
@@ -27,25 +28,32 @@ export async function signUpAction(prevState: FormState | null, formData: FormDa
   const email = formData.get("email") as string
   const password = formData.get("password") as string
 
-  // Store submitted values to return them if validation fails
-  const submittedValues = {
-    name,
-    email,
-    password,
-  }
+  const submittedValues = { name, email, password }
 
   try {
+    // Rate limiting
+    const headersList = await headers()
+    const ip = headersList.get("x-forwarded-for") ?? "127.0.0.1"
+    const { success } = await ratelimit.limit(ip)
+    
+    if (!success) {
+      return {
+        message: "Too many attempts. Please try again later.",
+        values: submittedValues,
+      }
+    }
+
     // Validate input with Zod
     const validatedFields = signUpSchema.safeParse({
-      email,
+      email: email?.toLowerCase().trim(),
       password,
-      name
+      name: name?.trim()
     })
 
     if (!validatedFields.success) {
       return {
         errors: validatedFields.error.flatten().fieldErrors,
-        values: submittedValues, // Return submitted values
+        values: submittedValues,
       }
     }
 
@@ -56,7 +64,7 @@ export async function signUpAction(prevState: FormState | null, formData: FormDa
         errors: {
           email: ["An account with this email already exists"],
         },
-        values: submittedValues, // Return submitted values
+        values: submittedValues,
       }
     }
 
@@ -73,19 +81,18 @@ export async function signUpAction(prevState: FormState | null, formData: FormDa
     if (!user) {
       return {
         message: "Failed to create account. Please try again.",
-        values: submittedValues, // Return submitted values
+        values: submittedValues,
       }
     }
 
-    // Redirect to signin page
     redirect("/auth/sign-in?message=Account created successfully")
   } catch (error) {
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error // Re-throw redirect errors
+      throw error
     }
     return {
       message: "Something went wrong. Please try again.",
-      values: submittedValues, // Return submitted values
+      values: submittedValues,
     }
   }
 }
@@ -94,53 +101,59 @@ export async function signInAction(prevState: FormState | null, formData: FormDa
   const email = formData.get("email") as string
   const password = formData.get("password") as string
 
-  // Store submitted values to return them if validation fails
-  const submittedValues = {
-    email,
-    password,
-  }
+  const submittedValues = { email, password }
 
   try {
+    // Rate limiting
+    const headersList = await headers()
+    const ip = headersList.get("x-forwarded-for") ?? "127.0.0.1"
+    const { success } = await ratelimit.limit(ip)
+    
+    if (!success) {
+      return {
+        message: "Too many login attempts. Please try again later.",
+        values: submittedValues,
+      }
+    }
+
     // Validate input with Zod
     const validatedFields = signInSchema.safeParse({
-      email,
+      email: email?.toLowerCase().trim(),
       password,
     })
 
     if (!validatedFields.success) {
       return {
         errors: validatedFields.error.flatten().fieldErrors,
-        values: submittedValues, // Return submitted values
+        values: submittedValues,
       }
     }
 
     await signIn("credentials", formData)
-
-    // If we get here, sign in was successful
-    redirect("/") // or wherever you want to redirect after sign in
+    redirect("/")
   } catch (error) {
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error // Re-throw redirect errors
+      throw error
     }
-
+    
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
           return {
-            message: "Invalid email or password.",
-            values: submittedValues, // Return submitted values
+            message: "Invalid email or password. Please check your credentials and try again.",
+            values: submittedValues,
           }
         default:
           return {
-            message: "Something went wrong. Please try again.",
-            values: submittedValues, // Return submitted values
+            message: "Authentication failed. Please try again.",
+            values: submittedValues,
           }
       }
     }
-
+    
     return {
       message: "Something went wrong. Please try again.",
-      values: submittedValues, // Return submitted values
+      values: submittedValues,
     }
   }
 }
