@@ -69,36 +69,31 @@ export function LoginPage() {
   const isFormValid = validation.email.isValid && validation.password.isValid
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 relative overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
-      </div>
-
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 backdrop-blur-xl relative z-10 overflow-hidden">
-        {/* Gradient border effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-lg blur opacity-20"></div>
-        <div className="relative bg-white rounded-lg">
-          <CardHeader className="space-y-6 text-center pb-8">
-            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300">
-              <Store className="w-10 h-10 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-md space-y-8">
+        <Card className="border border-gray-200 shadow-lg bg-white">
+          <CardHeader className="text-center pb-8 pt-10 px-6 sm:px-8">
+            {/* Logo */}
+            <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-white border-2 rounded-2xl flex items-center justify-center shadow-sm mb-6" 
+                 style={{ borderColor: '#e94491' }}>
+              <Store className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#e94491' }} />
             </div>
+            
             <div className="space-y-2">
-              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Welcome Back
               </CardTitle>
-              <CardDescription className="text-gray-500 text-base">
-                Sign in to access the Shahine Store admin dashboard
+              <CardDescription className="text-gray-600 text-base sm:text-lg">
+                Sign in to your Shahine Store dashboard
               </CardDescription>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="px-6 sm:px-8 pb-8">
             <form action={formAction} className="space-y-6">
               {/* Global error message */}
               {state?.message && (
-                <Alert variant="destructive" className="bg-red-50 border-red-200 animate-in slide-in-from-top-2 duration-300">
+                <Alert variant="destructive" className="bg-red-50 border-red-200">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-red-800 font-medium">
                     {state.message}
@@ -109,7 +104,7 @@ export function LoginPage() {
               {/* Email field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
+                  <Mail className="w-4 h-4" style={{ color: '#e94491' }} />
                   Email Address
                 </Label>
                 <div className="relative">
@@ -120,14 +115,14 @@ export function LoginPage() {
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     onBlur={() => handleBlur("email")}
-                    placeholder="admin@shahinestore.com"
+                    placeholder="Enter your email address"
                     className={cn(
-                      "h-12 pl-4 pr-10 text-base border-2 transition-all duration-200 focus:ring-2 focus:ring-offset-2",
+                      "h-12 pl-4 pr-12 text-base border-2 transition-all duration-200 focus:ring-2 focus:ring-offset-1",
                       touched.email && !validation.email.isValid
-                        ? "border-red-300 focus:border-red-500 focus:ring-red-200"
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                         : touched.email && validation.email.isValid
-                        ? "border-green-300 focus:border-green-500 focus:ring-green-200"
-                        : "border-gray-200 focus:border-blue-500 focus:ring-blue-200"
+                        ? "border-green-400 focus:border-green-500 focus:ring-green-100"
+                        : "border-gray-200 focus:border-pink-500 focus:ring-pink-100"
                     )}
                     required
                   />
@@ -142,7 +137,7 @@ export function LoginPage() {
                   )}
                 </div>
                 {touched.email && validation.email.message && (
-                  <p className="text-sm text-red-600 flex items-center gap-1 animate-in slide-in-from-top-1 duration-200">
+                  <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
                     {validation.email.message}
                   </p>
@@ -158,7 +153,7 @@ export function LoginPage() {
               {/* Password field */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Lock className="w-4 h-4" />
+                  <Lock className="w-4 h-4" style={{ color: '#e94491' }} />
                   Password
                 </Label>
                 <div className="relative">
@@ -171,12 +166,12 @@ export function LoginPage() {
                     onBlur={() => handleBlur("password")}
                     placeholder="Enter your password"
                     className={cn(
-                      "h-12 pl-4 pr-20 text-base border-2 transition-all duration-200 focus:ring-2 focus:ring-offset-2",
+                      "h-12 pl-4 pr-20 text-base border-2 transition-all duration-200 focus:ring-2 focus:ring-offset-1",
                       touched.password && !validation.password.isValid
-                        ? "border-red-300 focus:border-red-500 focus:ring-red-200"
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                         : touched.password && validation.password.isValid
-                        ? "border-green-300 focus:border-green-500 focus:ring-green-200"
-                        : "border-gray-200 focus:border-blue-500 focus:ring-blue-200"
+                        ? "border-green-400 focus:border-green-500 focus:ring-green-100"
+                        : "border-gray-200 focus:border-pink-500 focus:ring-pink-100"
                     )}
                     required
                   />
@@ -206,7 +201,7 @@ export function LoginPage() {
                   </div>
                 </div>
                 {touched.password && validation.password.message && (
-                  <p className="text-sm text-red-600 flex items-center gap-1 animate-in slide-in-from-top-1 duration-200">
+                  <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
                     {validation.password.message}
                   </p>
@@ -220,41 +215,38 @@ export function LoginPage() {
               </div>
 
               {/* Submit button */}
-              <SubmitButton
-                type="submit"
-                disabled={!isFormValid}
-                className={cn(
-                  "w-full h-12 text-base font-semibold shadow-lg transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]",
-                  isFormValid
-                    ? "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-xl hover:shadow-2xl"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
-                )}
-              >
-                Sign In to Dashboard
-              </SubmitButton>
+              <div className="pt-4">
+                <SubmitButton
+                  type="submit"
+                  disabled={!isFormValid}
+                  className={cn(
+                    "w-full h-12 text-base font-semibold transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99]",
+                    isFormValid
+                      ? "text-white shadow-md hover:shadow-lg"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  )}
+                  style={isFormValid ? {
+                    backgroundColor: '#e94491',
+                    borderColor: '#e94491'
+                  } : undefined}
+                >
+                  Sign In to Dashboard
+                </SubmitButton>
+              </div>
             </form>
 
-            {/* Demo credentials */}
-            <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-              <div className="text-center">
-                <p className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials</p>
-                <div className="space-y-1 text-sm text-blue-700">
-                  <p><span className="font-medium">Email:</span> admin@shahinestore.com</p>
-                  <p><span className="font-medium">Password:</span> admin123</p>
-                </div>
+            {/* Security notice */}
+            <div className="mt-8 text-center">
+              <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <p className="flex items-center justify-center gap-2">
+                  <Lock className="w-3 h-3" />
+                  Your connection is secured with end-to-end encryption
+                </p>
               </div>
             </div>
-
-            {/* Security notice */}
-            <div className="text-center text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-              <p className="flex items-center justify-center gap-1">
-                <Lock className="w-3 h-3" />
-                Your connection is secured with end-to-end encryption
-              </p>
-            </div>
           </CardContent>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }
