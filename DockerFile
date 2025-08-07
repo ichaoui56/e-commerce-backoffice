@@ -14,8 +14,6 @@ FROM base AS builder
 ARG DATABASE_URL
 ENV DATABASE_URL=$DATABASE_URL
 
-COPY .env.production .env.production
-
 RUN npm install -g pnpm
 WORKDIR /app
 
