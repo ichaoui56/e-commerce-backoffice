@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "build": "next build",
-		"prisma:install": "prisma generate",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
@@ -54,7 +53,6 @@
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
     "@tidbcloud/serverless": "latest",
-    "@types/better-sqlite3": "latest",
     "@types/pg": "latest",
     "@types/sql.js": "latest",
     "@upstash/redis": "latest",
@@ -62,7 +60,6 @@
     "@xata.io/client": "latest",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "latest",
-    "better-sqlite3": "latest",
     "bun-types": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
