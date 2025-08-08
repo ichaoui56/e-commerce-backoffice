@@ -694,3 +694,163 @@ export const updateStock = async (
     return { success: false, error: "Failed to update stock" }
   }
 }
+
+// Dashboard Statistics Actions
+export const getDashboardStats = async () => {
+  try {
+    // Get total products
+    const totalProducts = await prisma.product.count()
+
+    // Get total orders
+    const totalOrders = await prisma.order.count()
+
+    // Get total customers from GuestUser table
+    const totalCustomers = await prisma.guestUser.count()
+
+    // Calculate revenue from completed orders
+    const completedOrders = await prisma.order.findMany({
+      where: { status: 'delivered' },
+      include: {
+        orderItems: {
+          include: {
+            productSizeStock: true
+          }
+        }
+      }
+    })
+
+    const revenue = completedOrders.reduce((total, order) => {
+      const orderTotal = order.orderItems.reduce((orderSum, item) => {
+        return orderSum + (Number(item.price_at_purchase) * item.quantity)
+      }, 0)
+      return total + orderTotal
+    }, 0)
+
+    // Get low stock items (stock < 10)
+    const lowStockItems = await prisma.productSizeStock.count({
+      where: { stock: { lt: 10 } }
+    })
+
+    // Get pending orders
+    const pendingOrders = await prisma.order.count({
+      where: { status: 'pending' }
+    })
+
+    return {
+      totalProducts,
+      totalOrders,
+      totalCustomers,
+      revenue,
+      lowStockItems,
+      pendingOrders
+    }
+  } catch (error) {
+    console.error("Get dashboard stats error:", error)
+    return {
+      totalProducts: 0,
+      totalOrders: 0,
+      totalCustomers: 0,
+      revenue: 0,
+      lowStockItems: 0,
+      pendingOrders: 0
+    }
+  }
+}
+
+export const getRecentActivity = async () => {
+  try {
+    // Get recent orders (last 10)
+    const recentOrders = await prisma.order.findMany({
+      take: 5,
+      orderBy: { created_at: 'desc' },
+      include: {
+        orderItems: {
+          take: 1,
+          include: {
+            productSizeStock: {
+              include: {
+                productColor: {
+                  include: {
+                    product: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+
+    // Get recently updated products (last 5)
+    const recentProducts = await prisma.product.findMany({
+      take: 3,
+      orderBy: { updated_at: 'desc' },
+      where: {
+        updated_at: {
+          lte: new Date()
+        }
+      }
+    })
+
+    // Get low stock alerts
+    const lowStockAlerts = await prisma.productSizeStock.findMany({
+      where: { stock: { lt: 5 } },
+      take: 2,
+      include: {
+        productColor: {
+          include: {
+            product: true
+          }
+        },
+        size: true
+      }
+    })
+
+    const activities: any = []
+
+    // Add recent orders
+    recentOrders.forEach(order => {
+      const productName = order.orderItems[0]?.productSizeStock?.productColor?.product?.name || 'Unknown Product'
+      activities.push({
+        type: 'order',
+        title: 'New order received',
+        description: `Order #${order.ref_id} from ${order.name}`,
+        time: order.created_at,
+        icon: 'ShoppingCart'
+      })
+    })
+
+    // Add recent product updates
+    recentProducts.forEach(product => {
+      activities.push({
+        type: 'product',
+        title: 'Product updated',
+        description: product.name,
+        time: product.updated_at,
+        icon: 'Package'
+      })
+    })
+
+    // Add low stock alerts
+    lowStockAlerts.forEach(stockItem => {
+      const productName = stockItem.productColor?.product?.name || 'Unknown Product'
+      const sizeName = stockItem.size?.label || 'Unknown Size'
+      activities.push({
+        type: 'alert',
+        title: 'Low stock alert',
+        description: `${productName} - Size ${sizeName} running low (${stockItem.stock} left)`,
+        time: new Date(),
+        icon: 'AlertTriangle'
+      })
+    })
+
+    // Sort by time and return latest 6
+    return activities
+      .sort((a:any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 6)
+
+  } catch (error) {
+    console.error("Get recent activity error:", error)
+    return []
+  }
+}

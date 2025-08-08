@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye, Package, Truck, CheckCircle, XCircle } from "lucide-react"
+import { Search, Eye, Package, Truck, CheckCircle, XCircle } from 'lucide-react'
 import { getOrders, updateOrderStatus } from "@/lib/actions/server-actions"
 
 const getStatusColor = (status: string) => {
@@ -77,7 +77,6 @@ export function OrderManagement() {
       order.phone.includes(searchTerm)
 
     const matchesStatus = statusFilter === "all" || order.status === statusFilter
-
     return matchesSearch && matchesStatus
   })
 
@@ -90,10 +89,10 @@ export function OrderManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
-        <div className="flex items-center gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order Management</h1>
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
             {orders.filter((o) => o.status === "pending").length} Pending
           </Badge>
@@ -117,7 +116,7 @@ export function OrderManagement() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -137,75 +136,81 @@ export function OrderManagement() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Orders ({filteredOrders.length})</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-gray-50">
-                  <TableCell>
-                    <div className="font-mono text-sm font-medium">{order.ref_id}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{order.name}</div>
-                      <div className="text-sm text-gray-600">{order.phone}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {order.items.length} item{order.items.length !== 1 ? "s" : ""}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">${order.total.toFixed(2)}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${getStatusColor(order.status)} flex items-center gap-1 w-fit`}>
-                      {getStatusIcon(order.status)}
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-gray-600">{new Date(order.created_at).toLocaleDateString()}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value: "pending" | "shipped" | "delivered" | "cancelled") =>
-                          handleStatusUpdate(order.id, value)
-                        }
-                      >
-                        <SelectTrigger className="w-32 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableCell>
+        <CardContent className="p-0">
+          <div className="table-responsive">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead className="hidden sm:table-cell">Items</TableHead>
+                  <TableHead className="hidden md:table-cell">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Date</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id} className="hover:bg-gray-50">
+                    <TableCell>
+                      <div className="font-mono text-sm font-medium">{order.ref_id}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium truncate max-w-[120px] sm:max-w-none">{order.name}</div>
+                        <div className="text-sm text-gray-600 truncate max-w-[120px] sm:max-w-none">{order.phone}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <div className="text-sm">
+                        {order.items.length} item{order.items.length !== 1 ? "s" : ""}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <div className="font-medium">${order.total.toFixed(2)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${getStatusColor(order.status)} flex items-center gap-1 w-fit`}>
+                        {getStatusIcon(order.status)}
+                        <span className="hidden sm:inline">
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="text-sm text-gray-600">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Select
+                          value={order.status}
+                          onValueChange={(value: "pending" | "shipped" | "delivered" | "cancelled") =>
+                            handleStatusUpdate(order.id, value)
+                          }
+                        >
+                          <SelectTrigger className="w-20 sm:w-32 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

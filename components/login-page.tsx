@@ -71,12 +71,12 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-md space-y-8">
-        <Card className="border border-gray-200 shadow-lg bg-white">
+        <div className="sm:border border-gray-200 sm:shadow-lg sm:bg-white">
           <CardHeader className="text-center pb-8 pt-10 px-6 sm:px-8">
             {/* Logo */}
-            <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-white border-2 rounded-2xl flex items-center justify-center shadow-sm mb-6" 
+            <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-white -2 rounded-2xl flex items-center justify-center shadow-sm mb-6" 
                  style={{ borderColor: '#e94491' }}>
-              <Store className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#e94491' }} />
+              <img src="logo-shahine.png" alt="" className="w-14" />
             </div>
             
             <div className="space-y-2">
@@ -84,7 +84,7 @@ export function LoginPage() {
                 Welcome Back
               </CardTitle>
               <CardDescription className="text-gray-600 text-base sm:text-lg">
-                Sign in to your Shahine Store dashboard
+                Sign in to your <span className="text-[#e94491]"> Shahine Store </span> dashboard
               </CardDescription>
             </div>
           </CardHeader>
@@ -245,7 +245,7 @@ export function LoginPage() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   )

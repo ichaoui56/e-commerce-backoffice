@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Search, Edit, Trash2, Eye, Filter, Download } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, Filter, Download } from 'lucide-react'
 import { ProductDetails } from "@/components/product-details"
 import { getProducts, deleteProduct } from "@/lib/actions/server-actions"
 import Image from "next/image"
@@ -75,10 +75,10 @@ export function ProductManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Product Management</h1>
-        <div className="flex gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Management</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             className="border-[#e94491] text-[#e94491] hover:bg-[#e94491] hover:text-white bg-transparent"
@@ -87,7 +87,7 @@ export function ProductManagement() {
             Export CSV
           </Button>
           <Link href="/products/add">
-            <Button className="bg-[#e94491] hover:bg-[#d63384]">
+            <Button className="bg-[#e94491] hover:bg-[#d63384] w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Add Product
             </Button>
@@ -108,7 +108,7 @@ export function ProductManagement() {
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+            <Button variant="outline" className="flex items-center gap-2 bg-transparent w-full sm:w-auto">
               <Filter className="w-4 h-4" />
               Filters
             </Button>
@@ -121,96 +121,109 @@ export function ProductManagement() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Products ({filteredProducts.length})</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Variants</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id} className="hover:bg-gray-50">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                        {product.variants?.[0]?.image_url ? (
-                          <Image
-                            src={product.variants[0].image_url || "/placeholder.svg"}
-                            alt={product.name}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-200 rounded-lg" />
-                        )}
+        <CardContent className="p-0">
+          <div className="table-responsive">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="hidden md:table-cell">Variants</TableHead>
+                  <TableHead className="hidden md:table-cell">Stock</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow key={product.id} className="hover:bg-gray-50">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          {product.variants?.[0]?.image_url ? (
+                            <Image
+                              src={product.variants[0].image_url || "/placeholder.svg"}
+                              alt={product.name}
+                              width={48}
+                              height={48}
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-200 rounded-lg" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{product.name}</div>
+                          {product.top_price && (
+                            <Badge className="bg-[#f472b6] text-white text-xs mt-1">Top Product</Badge>
+                          )}
+                          <div className="sm:hidden text-xs text-gray-500 mt-1">
+                            {product.category?.name || "No Category"} • {product.variants?.length || 0} variants
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        {product.top_price && (
-                          <Badge className="bg-[#f472b6] text-white text-xs mt-1">Top Product</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{product.category?.name || "No Category"}</TableCell>
-                  <TableCell>{product.variants?.length || 0} variants</TableCell>
-                  <TableCell>
-                    <span
-                      className={`font-medium ${
-                        product.totalStock === 0
-                          ? "text-red-600"
-                          : product.totalStock < 20
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant="outline" className="text-xs">
+                        {product.category?.name || "No Category"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <span className="text-sm">{product.variants?.length || 0} variants</span>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <span
+                        className={`font-medium ${
+                          product.totalStock === 0
+                            ? "text-red-600"
+                            : product.totalStock < 20
                             ? "text-yellow-600"
                             : "text-green-600"
-                      }`}
-                    >
-                      {product.totalStock}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(product.status)}>{product.status.replace("_", " ")}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={() => setViewingProduct(product)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Product Details</DialogTitle>
-                          </DialogHeader>
-                          {viewingProduct && <ProductDetails product={viewingProduct} />}
-                        </DialogContent>
-                      </Dialog>
-                      <Link href={`/products/edit/${product.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => handleDelete(product.id)}
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        {product.totalStock}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(product.status)}>
+                        {product.status.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => setViewingProduct(product)}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+                            <DialogHeader>
+                              <DialogTitle>Product Details</DialogTitle>
+                            </DialogHeader>
+                            {viewingProduct && <ProductDetails product={viewingProduct} />}
+                          </DialogContent>
+                        </Dialog>
+                        <Link href={`/products/edit/${product.id}`}>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleDelete(product.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

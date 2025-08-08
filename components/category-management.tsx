@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,14 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Edit, Trash2, FolderOpen, Folder, ChevronRight } from "lucide-react"
-import { 
-  getCategories, 
+import { Plus, Search, Edit, Trash2, FolderOpen, Folder, ChevronRight } from 'lucide-react'
+import {
+  getCategories,
   getCategoriesHierarchy,
-  createCategory, 
-  updateCategory, 
-  deleteCategory, 
-  type Category 
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  type Category
 } from "@/lib/actions/server-actions"
 
 interface CategoryFormProps {
@@ -59,15 +58,15 @@ function CategoryForm({ category, parentCategories, onClose, onSuccess }: Catego
       let result
       if (category) {
         result = await updateCategory(
-          category.id, 
-          formData.name, 
-          formData.slug, 
+          category.id,
+          formData.name,
+          formData.slug,
           formData.parentId || null
         )
       } else {
         result = await createCategory(
-          formData.name, 
-          formData.slug, 
+          formData.name,
+          formData.slug,
           formData.parentId || null
         )
       }
@@ -86,37 +85,39 @@ function CategoryForm({ category, parentCategories, onClose, onSuccess }: Catego
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="form-mobile">
       <div>
-        <Label htmlFor="name">Category Name</Label>
+        <Label htmlFor="name" className="text-sm font-medium">Category Name</Label>
         <Input
           id="name"
           value={formData.name}
           onChange={(e) => handleNameChange(e.target.value)}
           placeholder="Enter category name"
+          className="mt-1"
           required
         />
       </div>
-      
+
       <div>
-        <Label htmlFor="slug">Slug</Label>
+        <Label htmlFor="slug" className="text-sm font-medium">Slug</Label>
         <Input
           id="slug"
           value={formData.slug}
           onChange={(e) => setFormData((prev) => ({ ...prev, slug: e.target.value }))}
           placeholder="category-slug"
+          className="mt-1"
           required
         />
         <p className="text-xs text-gray-500 mt-1">URL-friendly version of the name. Usually lowercase with hyphens.</p>
       </div>
 
       <div>
-        <Label htmlFor="parent">Parent Category (Optional)</Label>
+        <Label htmlFor="parent" className="text-sm font-medium">Parent Category (Optional)</Label>
         <Select 
           value={formData.parentId} 
           onValueChange={(value) => setFormData(prev => ({ ...prev, parentId: value === "none" ? "" : value }))}
         >
-          <SelectTrigger>
+          <SelectTrigger className="mt-1">
             <SelectValue placeholder="Select parent category (leave empty for main category)" />
           </SelectTrigger>
           <SelectContent>
@@ -135,11 +136,15 @@ function CategoryForm({ category, parentCategories, onClose, onSuccess }: Catego
         </p>
       </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button type="button" variant="outline" onClick={onClose}>
+      <div className="flex flex-col sm:flex-row gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
           Cancel
         </Button>
-        <Button type="submit" disabled={isLoading} className="bg-[#e94491] hover:bg-[#d63384]">
+        <Button 
+          type="submit" 
+          disabled={isLoading} 
+          className="bg-[#e94491] hover:bg-[#d63384] flex-1 sm:flex-none"
+        >
           {isLoading ? "Saving..." : category ? "Update Category" : "Create Category"}
         </Button>
       </div>
@@ -163,19 +168,21 @@ function CategoryRow({ category, level, onEdit, onDelete }: CategoryRowProps) {
     <>
       <TableRow className="hover:bg-gray-50">
         <TableCell className="font-medium" style={indentationStyle}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-5">
             {level > 0 && <ChevronRight className="w-4 h-4 text-gray-400" />}
             {level === 0 ? (
               <Folder className="w-4 h-4 text-[#e94491]" />
             ) : (
               <FolderOpen className="w-4 h-4 text-blue-500" />
             )}
-            {category.name}
+            <span className="truncate">{category.name}</span>
             {level > 0 && <Badge variant="secondary" className="text-xs">Sub</Badge>}
           </div>
         </TableCell>
-        <TableCell className="font-mono text-sm text-gray-600">{category.slug}</TableCell>
-        <TableCell>
+        <TableCell className="font-mono text-sm text-gray-600 hidden sm:table-cell">
+          {category.slug}
+        </TableCell>
+        <TableCell className="hidden md:table-cell">
           {category.parent ? (
             <Badge variant="outline" className="text-xs">
               {category.parent.name}
@@ -187,7 +194,7 @@ function CategoryRow({ category, level, onEdit, onDelete }: CategoryRowProps) {
           )}
         </TableCell>
         <TableCell>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={() => onEdit(category)}>
               <Edit className="w-4 h-4" />
             </Button>
@@ -255,17 +262,6 @@ export function CategoryManagement() {
     }
   }
 
-  const flattenCategoriesForSearch = (cats: Category[]): Category[] => {
-    let result: Category[] = []
-    for (const cat of cats) {
-      result.push(cat)
-      if (cat.children) {
-        result = result.concat(flattenCategoriesForSearch(cat.children))
-      }
-    }
-    return result
-  }
-
   const filteredCategories = viewMode === 'hierarchy' 
     ? hierarchicalCategories.filter((category) =>
         category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -290,17 +286,17 @@ export function CategoryManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Category Management</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Category Management</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#e94491] hover:bg-[#d63384]">
+            <Button className="bg-[#e94491] hover:bg-[#d63384] w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md mx-4">
             <DialogHeader>
               <DialogTitle>Add New Category</DialogTitle>
             </DialogHeader>
@@ -314,7 +310,7 @@ export function CategoryManagement() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -323,12 +319,12 @@ export function CategoryManagement() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Categories</p>
-                <p className="text-2xl font-bold text-gray-900">{totalCategories}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalCategories}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -337,12 +333,12 @@ export function CategoryManagement() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Main Categories</p>
-                <p className="text-2xl font-bold text-gray-900">{mainCategories}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{mainCategories}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -351,7 +347,7 @@ export function CategoryManagement() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Subcategories</p>
-                <p className="text-2xl font-bold text-gray-900">{subCategories}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{subCategories}</p>
               </div>
             </div>
           </CardContent>
@@ -362,7 +358,7 @@ export function CategoryManagement() {
       <Card className="shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 w-full sm:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="Search categories..."
@@ -371,12 +367,12 @@ export function CategoryManagement() {
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="view-mode" className="text-sm font-medium">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Label htmlFor="view-mode" className="text-sm font-medium whitespace-nowrap">
                 View:
               </Label>
               <Select value={viewMode} onValueChange={(value: 'flat' | 'hierarchy') => setViewMode(value)}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -397,75 +393,79 @@ export function CategoryManagement() {
             Categories ({viewMode === 'hierarchy' ? 'Hierarchical View' : 'Flat View'})
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {viewMode === 'hierarchy' ? (
-                // Hierarchical view
-                filteredCategories.map((category) => (
-                  <CategoryRow
-                    key={category.id}
-                    category={category}
-                    level={0}
-                    onEdit={setEditingCategory}
-                    onDelete={handleDelete}
-                  />
-                ))
-              ) : (
-                // Flat view
-                filteredCategories.map((category) => (
-                  <TableRow key={category.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {category.parentId ? (
-                          <FolderOpen className="w-4 h-4 text-blue-500" />
+        <CardContent className="p-0">
+          <div className="table-responsive">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Slug</TableHead>
+                  <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {viewMode === 'hierarchy' ? (
+                  // Hierarchical view
+                  filteredCategories.map((category) => (
+                    <CategoryRow
+                      key={category.id}
+                      category={category}
+                      level={0}
+                      onEdit={setEditingCategory}
+                      onDelete={handleDelete}
+                    />
+                  ))
+                ) : (
+                  // Flat view
+                  filteredCategories.map((category) => (
+                    <TableRow key={category.id} className="hover:bg-gray-50">
+                      <TableCell className="ml-5 font-medium">
+                        <div className="flex items-center gap-2">
+                          {category.parentId ? (
+                            <FolderOpen className="w-4 h-4 text-blue-500" />
+                          ) : (
+                            <Folder className="w-4 h-4 text-[#e94491]" />
+                          )}
+                          <span className="truncate">{category.name}</span>
+                          {category.parentId && <Badge variant="secondary" className="text-xs">Sub</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm text-gray-600 hidden sm:table-cell">
+                        {category.slug}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {category.parent ? (
+                          <Badge variant="outline" className="text-xs">
+                            {category.parent.name}
+                          </Badge>
                         ) : (
-                          <Folder className="w-4 h-4 text-[#e94491]" />
+                          <Badge className="text-xs bg-green-100 text-green-800">
+                            Main Category
+                          </Badge>
                         )}
-                        {category.name}
-                        {category.parentId && <Badge variant="secondary" className="text-xs">Sub</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm text-gray-600">{category.slug}</TableCell>
-                    <TableCell>
-                      {category.parent ? (
-                        <Badge variant="outline" className="text-xs">
-                          {category.parent.name}
-                        </Badge>
-                      ) : (
-                        <Badge className="text-xs bg-green-100 text-green-800">
-                          Main Category
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setEditingCategory(category)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingCategory(category)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDelete(category.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
           
           {filteredCategories.length === 0 && (
             <div className="text-center py-8 text-gray-500">
@@ -478,7 +478,7 @@ export function CategoryManagement() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingCategory} onOpenChange={() => setEditingCategory(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4">
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
           </DialogHeader>

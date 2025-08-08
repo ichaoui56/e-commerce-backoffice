@@ -32,8 +32,8 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
         <div className="flex items-center gap-4 mb-4">
           <Link href="/products">
             <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Products
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden md:block">Back to Products</span>
             </Button>
           </Link>
           <div>
