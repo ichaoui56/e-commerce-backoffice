@@ -794,7 +794,7 @@ export const getOrders = async () => {
         ref_id: order.ref_id,
         name: order.name,
         phone: order.phone,
-        address: order.address,
+        city: order.city,
         status: order.status,
         created_at: order.created_at,
         items,

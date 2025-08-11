@@ -736,7 +736,7 @@ export function ProductForm({ product }: ProductFormProps) {
                                   <TableHeader>
                                     <TableRow className="bg-gradient-to-r from-gray-100 to-gray-50">
                                       <TableHead className="font-semibold text-gray-700 py-4">Size</TableHead>
-                                      <TableHead className="font-semibold text-gray-700 py-4">Price ($)</TableHead>
+                                      <TableHead className="font-semibold text-gray-700 py-4">Price (MAD)</TableHead>
                                       <TableHead className="font-semibold text-gray-700 py-4">Stock</TableHead>
                                       <TableHead className="font-semibold text-gray-700 py-4">Action</TableHead>
                                     </TableRow>
