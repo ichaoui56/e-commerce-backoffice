@@ -206,6 +206,9 @@ importers:
       pg:
         specifier: latest
         version: 8.16.3
+      pinata:
+        specifier: ^2.4.9
+        version: 2.4.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       postgres:
         specifier: latest
         version: 3.4.7
@@ -4323,6 +4326,18 @@ packages:
   pify@2.3.0:
     resolution: {integrity: sha512-udgsAY+fTnvv7kI7aaxbqwWNb0AHiB0qBO89PZKPkoTmGOgdbrHDKD+0B2X4uTfJ/FT1R09r9gTsjUjNJotuog==}
     engines: {node: '>=0.10.0'}
+
+  pinata@2.4.9:
+    resolution: {integrity: sha512-94fMvBJXnFgDyZkYRd7SCaXsHZERtDAjIcPIpYlUXAorv77xav3UMU0fipX/EKZwl3Uv8P7Mbul12KdbqpLRdA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   pirates@4.0.7:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
@@ -10297,6 +10312,11 @@ snapshots:
   picomatch@3.0.1: {}
 
   pify@2.3.0: {}
+
+  pinata@2.4.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   pirates@4.0.7: {}
 

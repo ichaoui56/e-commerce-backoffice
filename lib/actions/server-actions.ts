@@ -3,6 +3,7 @@
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
 import { revalidatePath } from "next/cache"
+import { any } from "zod"
 
 const prisma = new PrismaClient()
 
@@ -72,7 +73,6 @@ export const getCategories = async (): Promise<Category[]> => {
 
 export const getCategoriesHierarchy = async (): Promise<Category[]> => {
   try {
-    // Get all categories with their children
     const allCategories = await prisma.category.findMany({
       include: {
         children: {
@@ -82,9 +82,7 @@ export const getCategoriesHierarchy = async (): Promise<Category[]> => {
       orderBy: { name: 'asc' }
     })
 
-    // Filter to get only parent categories (those with parentId === null)
-    const parentCategories = allCategories.filter(cat => cat.parentId === null)
-    
+    const parentCategories = allCategories.filter((cat: any) => cat.parentId === null)
     return parentCategories
   } catch (error) {
     console.error("Get categories hierarchy error:", error)
@@ -98,7 +96,6 @@ export const createCategory = async (
   parentId?: string | null,
 ): Promise<{ success: boolean; category?: Category; error?: string }> => {
   try {
-    // Check if slug already exists
     const existing = await prisma.category.findUnique({
       where: { slug },
     })
@@ -107,7 +104,6 @@ export const createCategory = async (
       return { success: false, error: "Slug already exists" }
     }
 
-    // If parentId is provided, verify it exists
     if (parentId) {
       const parentExists = await prisma.category.findUnique({
         where: { id: parentId }
@@ -145,7 +141,6 @@ export const updateCategory = async (
   parentId?: string | null,
 ): Promise<{ success: boolean; category?: Category; error?: string }> => {
   try {
-    // Check if slug already exists (excluding current category)
     const existing = await prisma.category.findFirst({
       where: {
         slug,
@@ -157,7 +152,6 @@ export const updateCategory = async (
       return { success: false, error: "Slug already exists" }
     }
 
-    // If parentId is provided, verify it exists and prevent circular reference
     if (parentId) {
       if (parentId === id) {
         return { success: false, error: "Category cannot be its own parent" }
@@ -171,12 +165,11 @@ export const updateCategory = async (
         return { success: false, error: "Parent category not found" }
       }
 
-      // Check for circular reference (if the parentId is a child of current category)
       const children = await prisma.category.findMany({
         where: { parentId: id }
       })
       
-      if (children.some(child => child.id === parentId)) {
+      if (children.some((child: any) => child.id === parentId)) {
         return { success: false, error: "Cannot create circular reference" }
       }
     }
@@ -204,7 +197,6 @@ export const updateCategory = async (
 
 export const deleteCategory = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Check if category has children
     const children = await prisma.category.findMany({
       where: { parentId: id }
     })
@@ -213,7 +205,6 @@ export const deleteCategory = async (id: string): Promise<{ success: boolean; er
       return { success: false, error: "Cannot delete category with subcategories. Delete subcategories first." }
     }
 
-    // Check if category is used by products
     const productsCount = await prisma.product.count({
       where: { category_id: id }
     })
@@ -233,8 +224,6 @@ export const deleteCategory = async (id: string): Promise<{ success: boolean; er
     return { success: false, error: "Failed to delete category" }
   }
 }
-
-// Rest of your existing actions remain the same...
 
 // Color Actions
 export const getColors = async (): Promise<Color[]> => {
@@ -289,7 +278,7 @@ export const createSize = async (label: string): Promise<{ success: boolean; siz
   }
 }
 
-// Product Actions
+// Product Actions with Multiple Image Support
 export const getProducts = async () => {
   try {
     const result = await prisma.product.findMany({
@@ -302,6 +291,9 @@ export const getProducts = async () => {
         productColors: {
           include: {
             color: true,
+            productImages: {
+              orderBy: { sort_order: 'asc' }
+            },
             productSizeStocks: {
               include: {
                 size: true,
@@ -312,12 +304,12 @@ export const getProducts = async () => {
       },
     })
 
-    // Transform to match your existing structure
     const productsWithVariants = result.map((product: any) => {
       const variants = product.productColors.map((productColor: any) => ({
         id: productColor.id,
         color_id: productColor.color_id,
-        image_url: productColor.image_url,
+        image_url: productColor.image_url, // Keep for backward compatibility
+        image_urls: productColor.productImages.map((img: any) => img.image_url), // Multiple images
         color: productColor.color,
         sizeStocks: productColor.productSizeStocks.map((sizeStock: any) => ({
           id: sizeStock.id,
@@ -362,6 +354,9 @@ export const getProductById = async (id: string) => {
         productColors: {
           include: {
             color: true,
+            productImages: {
+              orderBy: { sort_order: 'asc' }
+            },
             productSizeStocks: {
               include: {
                 size: true,
@@ -374,11 +369,11 @@ export const getProductById = async (id: string) => {
 
     if (!result) return null
 
-    // Transform to match your existing structure
     const variants = result.productColors.map((productColor: any) => ({
       id: productColor.id,
       color_id: productColor.color_id,
-      image_url: productColor.image_url,
+      image_url: productColor.image_url, // Keep for backward compatibility
+      image_urls: productColor.productImages.map((img: any) => img.image_url), // Multiple images
       color: productColor.color,
       sizeStocks: productColor.productSizeStocks.map((sizeStock: any) => ({
         id: sizeStock.id,
@@ -416,6 +411,7 @@ export const createProduct = async (productData: {
   colors: Array<{
     color_id: string
     image_url: string
+    image_urls?: string[] // Support for multiple images
     sizes: Array<{
       size_id: string
       stock: number
@@ -424,7 +420,6 @@ export const createProduct = async (productData: {
   }>
 }): Promise<{ success: boolean; product?: any; error?: string }> => {
   try {
-    // Create product with colors and sizes in a transaction
     const result = await prisma.$transaction(async (tx: any) => {
       // Create product
       const newProduct = await tx.product.create({
@@ -448,9 +443,26 @@ export const createProduct = async (productData: {
           data: {
             product_id: newProduct.id,
             color_id: colorData.color_id,
-            image_url: colorData.image_url,
+            image_url: colorData.image_url || "", // Keep for backward compatibility
           },
         })
+
+        // Handle multiple images if provided
+        if (colorData.image_urls && colorData.image_urls.length > 0) {
+          for (let i = 0; i < colorData.image_urls.length; i++) {
+            const imageUrl = colorData.image_urls[i]
+            if (imageUrl && imageUrl.trim()) {
+              await tx.productImage.create({
+                data: {
+                  product_color_id: productColor.id,
+                  image_url: imageUrl,
+                  is_primary: i === 0, // First image is primary
+                  sort_order: i,
+                },
+              })
+            }
+          }
+        }
 
         // Create size stocks
         for (const sizeData of colorData.sizes) {
@@ -492,6 +504,7 @@ export const updateProduct = async (
     colors: Array<{
       color_id: string
       image_url: string
+      image_urls?: string[] // Support for multiple images
       sizes: Array<{
         size_id: string
         stock: number
@@ -515,7 +528,23 @@ export const updateProduct = async (
         },
       })
 
-      // Delete existing product colors and their size stocks
+      // Get existing product colors to clean up images
+      const existingProductColors = await tx.productColor.findMany({
+        where: { product_id: id },
+        include: {
+          productImages: true,
+          productSizeStocks: true
+        }
+      })
+
+      // Delete existing product images
+      for (const productColor of existingProductColors) {
+        await tx.productImage.deleteMany({
+          where: { product_color_id: productColor.id }
+        })
+      }
+
+      // Delete existing product size stocks
       await tx.productSizeStock.deleteMany({
         where: {
           productColor: {
@@ -524,6 +553,7 @@ export const updateProduct = async (
         },
       })
 
+      // Delete existing product colors
       await tx.productColor.deleteMany({
         where: { product_id: id },
       })
@@ -539,9 +569,26 @@ export const updateProduct = async (
           data: {
             product_id: id,
             color_id: colorData.color_id,
-            image_url: colorData.image_url,
+            image_url: colorData.image_url || "", // Keep for backward compatibility
           },
         })
+
+        // Handle multiple images if provided
+        if (colorData.image_urls && colorData.image_urls.length > 0) {
+          for (let i = 0; i < colorData.image_urls.length; i++) {
+            const imageUrl = colorData.image_urls[i]
+            if (imageUrl && imageUrl.trim()) {
+              await tx.productImage.create({
+                data: {
+                  product_color_id: productColor.id,
+                  image_url: imageUrl,
+                  is_primary: i === 0, // First image is primary
+                  sort_order: i,
+                },
+              })
+            }
+          }
+        }
 
         // Create size stocks
         for (const sizeData of colorData.sizes) {
@@ -584,6 +631,106 @@ export const deleteProduct = async (id: string): Promise<{ success: boolean; err
   }
 }
 
+// Image Management Actions
+export const updateProductImages = async (
+  productColorId: string,
+  imageUrls: string[]
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.$transaction(async (tx: any) => {
+      // Delete existing images for this product color
+      await tx.productImage.deleteMany({
+        where: { product_color_id: productColorId }
+      })
+
+      // Create new images
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUrl = imageUrls[i]
+        if (imageUrl && imageUrl.trim()) {
+          await tx.productImage.create({
+            data: {
+              product_color_id: productColorId,
+              image_url: imageUrl,
+              is_primary: i === 0, // First image is primary
+              sort_order: i,
+            },
+          })
+        }
+      }
+
+      // Update the main image_url in productColor for backward compatibility
+      await tx.productColor.update({
+        where: { id: productColorId },
+        data: { 
+          image_url: imageUrls.length > 0 ? imageUrls[0] : null 
+        }
+      })
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Update product images error:", error)
+    return { success: false, error: "Failed to update product images" }
+  }
+}
+
+export const deleteProductImage = async (
+  productImageId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.productImage.delete({
+      where: { id: productImageId }
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Delete product image error:", error)
+    return { success: false, error: "Failed to delete product image" }
+  }
+}
+
+export const reorderProductImages = async (
+  productColorId: string,
+  imageOrders: Array<{ id: string; sort_order: number }>
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.$transaction(async (tx: any) => {
+      for (const imageOrder of imageOrders) {
+        await tx.productImage.update({
+          where: { id: imageOrder.id },
+          data: { 
+            sort_order: imageOrder.sort_order,
+            is_primary: imageOrder.sort_order === 0 // First image is primary
+          }
+        })
+      }
+
+      // Update the main image_url in productColor for backward compatibility
+      const primaryImage = await tx.productImage.findFirst({
+        where: { 
+          product_color_id: productColorId,
+          is_primary: true 
+        }
+      })
+
+      if (primaryImage) {
+        await tx.productColor.update({
+          where: { id: productColorId },
+          data: { image_url: primaryImage.image_url }
+        })
+      }
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Reorder product images error:", error)
+    return { success: false, error: "Failed to reorder product images" }
+  }
+}
+
 // Order Actions
 export const getOrders = async () => {
   try {
@@ -597,6 +744,10 @@ export const getOrders = async () => {
                   include: {
                     product: true,
                     color: true,
+                    productImages: {
+                      where: { is_primary: true },
+                      take: 1
+                    }
                   },
                 },
                 size: true,
@@ -610,7 +761,6 @@ export const getOrders = async () => {
       },
     })
 
-    // Transform to match your existing structure
     const ordersWithItems = result.map((order: any) => {
       const items = order.orderItems.map((item: any) => ({
         id: item.id,
@@ -630,6 +780,7 @@ export const getOrders = async () => {
           label: item.productSizeStock.size.label,
         },
         image_url: item.productSizeStock.productColor.image_url,
+        image_urls: item.productSizeStock.productColor.productImages.map((img: any) => img.image_url),
       }))
 
       const total = items.reduce(
@@ -698,16 +849,10 @@ export const updateStock = async (
 // Dashboard Statistics Actions
 export const getDashboardStats = async () => {
   try {
-    // Get total products
     const totalProducts = await prisma.product.count()
-
-    // Get total orders
     const totalOrders = await prisma.order.count()
-
-    // Get total customers from GuestUser table
     const totalCustomers = await prisma.guestUser.count()
 
-    // Calculate revenue from completed orders
     const completedOrders = await prisma.order.findMany({
       where: { status: 'delivered' },
       include: {
@@ -719,19 +864,17 @@ export const getDashboardStats = async () => {
       }
     })
 
-    const revenue = completedOrders.reduce((total, order) => {
-      const orderTotal = order.orderItems.reduce((orderSum, item) => {
+    const revenue = completedOrders.reduce((total:any, order:any) => {
+      const orderTotal = order.orderItems.reduce((orderSum:any, item:any) => {
         return orderSum + (Number(item.price_at_purchase) * item.quantity)
       }, 0)
       return total + orderTotal
     }, 0)
 
-    // Get low stock items (stock < 10)
     const lowStockItems = await prisma.productSizeStock.count({
       where: { stock: { lt: 10 } }
     })
 
-    // Get pending orders
     const pendingOrders = await prisma.order.count({
       where: { status: 'pending' }
     })
@@ -759,7 +902,6 @@ export const getDashboardStats = async () => {
 
 export const getRecentActivity = async () => {
   try {
-    // Get recent orders (last 10)
     const recentOrders = await prisma.order.findMany({
       take: 5,
       orderBy: { created_at: 'desc' },
@@ -781,7 +923,6 @@ export const getRecentActivity = async () => {
       }
     })
 
-    // Get recently updated products (last 5)
     const recentProducts = await prisma.product.findMany({
       take: 3,
       orderBy: { updated_at: 'desc' },
@@ -792,7 +933,6 @@ export const getRecentActivity = async () => {
       }
     })
 
-    // Get low stock alerts
     const lowStockAlerts = await prisma.productSizeStock.findMany({
       where: { stock: { lt: 5 } },
       take: 2,
@@ -808,8 +948,7 @@ export const getRecentActivity = async () => {
 
     const activities: any = []
 
-    // Add recent orders
-    recentOrders.forEach(order => {
+    recentOrders.forEach((order:any) => {
       const productName = order.orderItems[0]?.productSizeStock?.productColor?.product?.name || 'Unknown Product'
       activities.push({
         type: 'order',
@@ -820,8 +959,7 @@ export const getRecentActivity = async () => {
       })
     })
 
-    // Add recent product updates
-    recentProducts.forEach(product => {
+    recentProducts.forEach((product:any) => {
       activities.push({
         type: 'product',
         title: 'Product updated',
@@ -831,8 +969,7 @@ export const getRecentActivity = async () => {
       })
     })
 
-    // Add low stock alerts
-    lowStockAlerts.forEach(stockItem => {
+    lowStockAlerts.forEach((stockItem:any) => {
       const productName = stockItem.productColor?.product?.name || 'Unknown Product'
       const sizeName = stockItem.size?.label || 'Unknown Size'
       activities.push({
@@ -844,13 +981,65 @@ export const getRecentActivity = async () => {
       })
     })
 
-    // Sort by time and return latest 6
     return activities
-      .sort((a:any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 6)
 
   } catch (error) {
     console.error("Get recent activity error:", error)
     return []
+  }
+}
+
+// Additional utility functions for multiple image support
+export const getProductImages = async (productColorId: string) => {
+  try {
+    const images = await prisma.productImage.findMany({
+      where: { product_color_id: productColorId },
+      orderBy: { sort_order: 'asc' }
+    })
+    return images
+  } catch (error) {
+    console.error("Get product images error:", error)
+    return []
+  }
+}
+
+export const setPrimaryImage = async (
+  productImageId: string,
+  productColorId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await prisma.$transaction(async (tx: any) => {
+      // Remove primary flag from all images in this product color
+      await tx.productImage.updateMany({
+        where: { product_color_id: productColorId },
+        data: { is_primary: false }
+      })
+
+      // Set the selected image as primary
+      await tx.productImage.update({
+        where: { id: productImageId },
+        data: { is_primary: true, sort_order: 0 }
+      })
+
+      // Update main image_url for backward compatibility
+      const primaryImage = await tx.productImage.findUnique({
+        where: { id: productImageId }
+      })
+
+      if (primaryImage) {
+        await tx.productColor.update({
+          where: { id: productColorId },
+          data: { image_url: primaryImage.image_url }
+        })
+      }
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Set primary image error:", error)
+    return { success: false, error: "Failed to set primary image" }
   }
 }

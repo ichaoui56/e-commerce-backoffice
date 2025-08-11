@@ -11,9 +11,9 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X, Plus, Trash2, Upload } from 'lucide-react'
-import Image from "next/image"
+import { X, Plus, Trash2 } from 'lucide-react'
 import { useRouter } from "next/navigation"
+import { ImageUpload } from "@/components/ImageUpload" // Import the new component
 import {
   getCategories,
   getColors,
@@ -42,7 +42,7 @@ interface SelectedColor {
   id: string
   name: string
   hex: string
-  image_url: string
+  image_urls: string[] // Changed from image_url to image_urls array
   sizes: ColorSize[]
 }
 
@@ -101,6 +101,10 @@ export function ProductForm({ product }: ProductFormProps) {
         product.variants.forEach((variant: any) => {
           const existingColor = existingColors.find((c) => c.id === variant.color_id)
           if (existingColor) {
+            // Add image URL to existing color if not already present
+            if (variant.image_url && !existingColor.image_urls.includes(variant.image_url)) {
+              existingColor.image_urls.push(variant.image_url)
+            }
             variant.sizeStocks.forEach((sizeStock: any) => {
               existingColor.sizes.push({
                 id: sizeStock.size_id,
@@ -120,7 +124,7 @@ export function ProductForm({ product }: ProductFormProps) {
               id: variant.color_id,
               name: variant.color?.name || "",
               hex: variant.color?.hex || "",
-              image_url: variant.image_url || "",
+              image_urls: variant.image_url ? [variant.image_url] : [], // Convert single URL to array
               sizes: colorSizes,
             })
           }
@@ -140,7 +144,7 @@ export function ProductForm({ product }: ProductFormProps) {
         id: color.id,
         name: color.name,
         hex: color.hex || "#000000",
-        image_url: "",
+        image_urls: [], // Initialize with empty array
         sizes: [],
       }])
     }
@@ -150,18 +154,15 @@ export function ProductForm({ product }: ProductFormProps) {
     setSelectedColors((prev) => prev.filter((c) => c.id !== colorId))
   }
 
-  const handleImageUpload = (colorId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const imageUrl = URL.createObjectURL(file)
-      setSelectedColors((prev) =>
-        prev.map((color) => (color.id === colorId ? { ...color, image_url: imageUrl } : color)),
+  // New function to handle image changes from ImageUpload component
+  const handleImagesChange = (colorId: string, imageUrls: string[]) => {
+    setSelectedColors((prev) =>
+      prev.map((color) => 
+        color.id === colorId 
+          ? { ...color, image_urls: imageUrls }
+          : color
       )
-    }
-  }
-
-  const removeColorImage = (colorId: string) => {
-    setSelectedColors((prev) => prev.map((color) => (color.id === colorId ? { ...color, image_url: "" } : color)))
+    )
   }
 
   const addSizeToColor = (colorId: string, sizeId: string) => {
@@ -273,7 +274,7 @@ export function ProductForm({ product }: ProductFormProps) {
           id: result.color.id,
           name: result.color.name,
           hex: result.color.hex || "#000000",
-          image_url: "",
+          image_urls: [], // Initialize with empty array
           sizes: [],
         }
         setSelectedColors((prev) => [...prev, newColor])
@@ -307,15 +308,28 @@ export function ProductForm({ product }: ProductFormProps) {
         return
       }
 
-      const colorsData = selectedColors.map((color) => ({
-        color_id: color.id,
-        image_url: color.image_url,
-        sizes: color.sizes.map((size) => ({
-          size_id: size.id,
-          stock: Number(size.stock) || 0,
-          price: Number(size.price) || 0,
-        })),
-      }))
+      // Transform data to work with multiple images
+      const colorsData = selectedColors.flatMap((color) => 
+        color.image_urls.length > 0 
+          ? color.image_urls.map((imageUrl) => ({
+              color_id: color.id,
+              image_url: imageUrl,
+              sizes: color.sizes.map((size) => ({
+                size_id: size.id,
+                stock: Number(size.stock) || 0,
+                price: Number(size.price) || 0,
+              })),
+            }))
+          : [{
+              color_id: color.id,
+              image_url: "",
+              sizes: color.sizes.map((size) => ({
+                size_id: size.id,
+                stock: Number(size.stock) || 0,
+                price: Number(size.price) || 0,
+              })),
+            }]
+      )
 
       const productData = {
         ...formData,
@@ -636,7 +650,7 @@ export function ProductForm({ product }: ProductFormProps) {
                               <h4 className="text-lg sm:text-xl font-bold text-gray-800">{color.name}</h4>
                               <p className="text-sm text-gray-600 flex items-center gap-2">
                                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                {color.sizes.length} sizes configured
+                                {color.sizes.length} sizes, {color.image_urls.length} images
                               </p>
                             </div>
                           </div>
@@ -653,50 +667,14 @@ export function ProductForm({ product }: ProductFormProps) {
                       </CardHeader>
 
                       <CardContent className="space-y-6 p-4 sm:p-6">
-                        {/* Image Upload */}
-                        <div className="space-y-3">
-                          <Label className="text-sm font-semibold text-gray-700">Product Image for {color.name}</Label>
-                          {color.image_url ? (
-                            <div className="relative group">
-                              <Image
-                                src={color.image_url || "/placeholder.svg"}
-                                alt={`${color.name} variant`}
-                                width={200}
-                                height={200}
-                                className="w-full h-48 object-cover rounded-xl border-4 border-gray-200 shadow-lg"
-                              />
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => removeColorImage(color.id)}
-                                  className="bg-red-500 hover:bg-red-600"
-                                >
-                                  <X className="w-4 h-4 mr-2" />
-                                  Remove Image
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 sm:p-8 text-center hover:border-[#e94491] transition-colors bg-gradient-to-br from-gray-50 to-white">
-                              <Label htmlFor={`image-${color.id}`} className="cursor-pointer">
-                                <Upload className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-400 mb-4" />
-                                <div className="text-base sm:text-lg font-semibold text-gray-600 mb-2">
-                                  Upload image for {color.name}
-                                </div>
-                                <div className="text-sm text-gray-500">Click to browse or drag and drop</div>
-                              </Label>
-                              <Input
-                                id={`image-${color.id}`}
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleImageUpload(color.id, e)}
-                                className="hidden"
-                              />
-                            </div>
-                          )}
-                        </div>
+                        {/* Image Upload Component */}
+                        <ImageUpload
+                          colorId={color.id}
+                          colorName={color.name}
+                          existingImages={color.image_urls}
+                          onImagesChange={handleImagesChange}
+                          maxImages={5}
+                        />
 
                         {/* Size Management */}
                         <div className="space-y-4">
