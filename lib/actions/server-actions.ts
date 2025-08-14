@@ -1,3 +1,4 @@
+//service-action.ts
 "use server"
 
 import { auth } from "@/auth"
@@ -45,6 +46,37 @@ export interface Product {
   top_price: boolean
   created_at: Date
   updated_at: Date
+}
+
+interface OrderItem {
+  id: string
+  quantity: number
+  price_at_purchase: string
+  product: {
+    name: string
+  }
+  color: {
+    name: string
+  }
+  size: {
+    label: string
+  }
+  image_urls?: string[]
+  image_url?: string
+}
+
+interface Order {
+  id: string
+  ref_id: string
+  name: string
+  phone: string
+  city: string
+  status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled"
+  created_at: string
+  shipping_cost: string
+  shipping_option?: string
+  total: number
+  items: OrderItem[]
 }
 
 export const getCurrentUser = async () => {
@@ -108,17 +140,17 @@ export const createCategory = async (
       const parentExists = await prisma.category.findUnique({
         where: { id: parentId }
       })
-      
+
       if (!parentExists) {
         return { success: false, error: "Parent category not found" }
       }
     }
 
     const result = await prisma.category.create({
-      data: { 
-        name, 
-        slug, 
-        parentId: parentId || null 
+      data: {
+        name,
+        slug,
+        parentId: parentId || null
       },
       include: {
         parent: true,
@@ -160,7 +192,7 @@ export const updateCategory = async (
       const parentExists = await prisma.category.findUnique({
         where: { id: parentId }
       })
-      
+
       if (!parentExists) {
         return { success: false, error: "Parent category not found" }
       }
@@ -168,7 +200,7 @@ export const updateCategory = async (
       const children = await prisma.category.findMany({
         where: { parentId: id }
       })
-      
+
       if (children.some((child: any) => child.id === parentId)) {
         return { success: false, error: "Cannot create circular reference" }
       }
@@ -176,10 +208,10 @@ export const updateCategory = async (
 
     const result = await prisma.category.update({
       where: { id },
-      data: { 
-        name, 
-        slug, 
-        parentId: parentId || null 
+      data: {
+        name,
+        slug,
+        parentId: parentId || null
       },
       include: {
         parent: true,
@@ -291,7 +323,7 @@ export const getProducts = async () => {
         productColors: {
           include: {
             color: true,
-            productImages: {
+            product_images: {
               orderBy: { sort_order: 'asc' }
             },
             productSizeStocks: {
@@ -309,7 +341,7 @@ export const getProducts = async () => {
         id: productColor.id,
         color_id: productColor.color_id,
         image_url: productColor.image_url, // Keep for backward compatibility
-        image_urls: productColor.productImages.map((img: any) => img.image_url), // Multiple images
+        image_urls: productColor.product_images.map((img: any) => img.image_url), // Multiple images
         color: productColor.color,
         sizeStocks: productColor.productSizeStocks.map((sizeStock: any) => ({
           id: sizeStock.id,
@@ -354,7 +386,7 @@ export const getProductById = async (id: string) => {
         productColors: {
           include: {
             color: true,
-            productImages: {
+            product_images: {
               orderBy: { sort_order: 'asc' }
             },
             productSizeStocks: {
@@ -373,7 +405,7 @@ export const getProductById = async (id: string) => {
       id: productColor.id,
       color_id: productColor.color_id,
       image_url: productColor.image_url, // Keep for backward compatibility
-      image_urls: productColor.productImages.map((img: any) => img.image_url), // Multiple images
+      image_urls: productColor.product_images.map((img: any) => img.image_url), // Multiple images
       color: productColor.color,
       sizeStocks: productColor.productSizeStocks.map((sizeStock: any) => ({
         id: sizeStock.id,
@@ -532,7 +564,7 @@ export const updateProduct = async (
       const existingProductColors = await tx.productColor.findMany({
         where: { product_id: id },
         include: {
-          productImages: true,
+          product_images: true,
           productSizeStocks: true
         }
       })
@@ -661,8 +693,8 @@ export const updateProductImages = async (
       // Update the main image_url in productColor for backward compatibility
       await tx.productColor.update({
         where: { id: productColorId },
-        data: { 
-          image_url: imageUrls.length > 0 ? imageUrls[0] : null 
+        data: {
+          image_url: imageUrls.length > 0 ? imageUrls[0] : null
         }
       })
     })
@@ -679,7 +711,7 @@ export const deleteProductImage = async (
   productImageId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    await prisma.productImage.delete({
+    await prisma.product_images.delete({
       where: { id: productImageId }
     })
 
@@ -700,7 +732,7 @@ export const reorderProductImages = async (
       for (const imageOrder of imageOrders) {
         await tx.productImage.update({
           where: { id: imageOrder.id },
-          data: { 
+          data: {
             sort_order: imageOrder.sort_order,
             is_primary: imageOrder.sort_order === 0 // First image is primary
           }
@@ -709,9 +741,9 @@ export const reorderProductImages = async (
 
       // Update the main image_url in productColor for backward compatibility
       const primaryImage = await tx.productImage.findFirst({
-        where: { 
+        where: {
           product_color_id: productColorId,
-          is_primary: true 
+          is_primary: true
         }
       })
 
@@ -728,102 +760,6 @@ export const reorderProductImages = async (
   } catch (error) {
     console.error("Reorder product images error:", error)
     return { success: false, error: "Failed to reorder product images" }
-  }
-}
-
-// Order Actions
-export const getOrders = async () => {
-  try {
-    const result = await prisma.order.findMany({
-      include: {
-        orderItems: {
-          include: {
-            productSizeStock: {
-              include: {
-                productColor: {
-                  include: {
-                    product: true,
-                    color: true,
-                    productImages: {
-                      where: { is_primary: true },
-                      take: 1
-                    }
-                  },
-                },
-                size: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-    })
-
-    const ordersWithItems = result.map((order: any) => {
-      const items = order.orderItems.map((item: any) => ({
-        id: item.id,
-        quantity: item.quantity,
-        price_at_purchase: item.price_at_purchase,
-        product: {
-          id: item.productSizeStock.productColor.product.id,
-          name: item.productSizeStock.productColor.product.name,
-        },
-        color: {
-          id: item.productSizeStock.productColor.color.id,
-          name: item.productSizeStock.productColor.color.name,
-          hex: item.productSizeStock.productColor.color.hex,
-        },
-        size: {
-          id: item.productSizeStock.size.id,
-          label: item.productSizeStock.size.label,
-        },
-        image_url: item.productSizeStock.productColor.image_url,
-        image_urls: item.productSizeStock.productColor.productImages.map((img: any) => img.image_url),
-      }))
-
-      const total = items.reduce(
-        (sum: any, item: any) => sum + Number.parseFloat(item.price_at_purchase.toString() || "0") * item.quantity,
-        0,
-      )
-
-      return {
-        id: order.id,
-        guest_session_id: order.guest_session_id,
-        ref_id: order.ref_id,
-        name: order.name,
-        phone: order.phone,
-        city: order.city,
-        status: order.status,
-        created_at: order.created_at,
-        items,
-        total,
-      }
-    })
-
-    return ordersWithItems
-  } catch (error) {
-    console.error("Get orders error:", error)
-    return []
-  }
-}
-
-export const updateOrderStatus = async (
-  orderId: string,
-  status: "pending" | "shipped" | "delivered" | "cancelled",
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { status },
-    })
-
-    revalidatePath("/")
-    return { success: true }
-  } catch (error) {
-    console.error("Update order status error:", error)
-    return { success: false, error: "Failed to update order status" }
   }
 }
 
@@ -864,8 +800,8 @@ export const getDashboardStats = async () => {
       }
     })
 
-    const revenue = completedOrders.reduce((total:any, order:any) => {
-      const orderTotal = order.orderItems.reduce((orderSum:any, item:any) => {
+    const revenue = completedOrders.reduce((total: any, order: any) => {
+      const orderTotal = order.orderItems.reduce((orderSum: any, item: any) => {
         return orderSum + (Number(item.price_at_purchase) * item.quantity)
       }, 0)
       return total + orderTotal
@@ -948,7 +884,7 @@ export const getRecentActivity = async () => {
 
     const activities: any = []
 
-    recentOrders.forEach((order:any) => {
+    recentOrders.forEach((order: any) => {
       const productName = order.orderItems[0]?.productSizeStock?.productColor?.product?.name || 'Unknown Product'
       activities.push({
         type: 'order',
@@ -959,7 +895,7 @@ export const getRecentActivity = async () => {
       })
     })
 
-    recentProducts.forEach((product:any) => {
+    recentProducts.forEach((product: any) => {
       activities.push({
         type: 'product',
         title: 'Product updated',
@@ -969,7 +905,7 @@ export const getRecentActivity = async () => {
       })
     })
 
-    lowStockAlerts.forEach((stockItem:any) => {
+    lowStockAlerts.forEach((stockItem: any) => {
       const productName = stockItem.productColor?.product?.name || 'Unknown Product'
       const sizeName = stockItem.size?.label || 'Unknown Size'
       activities.push({
@@ -994,7 +930,7 @@ export const getRecentActivity = async () => {
 // Additional utility functions for multiple image support
 export const getProductImages = async (productColorId: string) => {
   try {
-    const images = await prisma.productImage.findMany({
+    const images = await prisma.product_images.findMany({
       where: { product_color_id: productColorId },
       orderBy: { sort_order: 'asc' }
     })
@@ -1041,5 +977,270 @@ export const setPrimaryImage = async (
   } catch (error) {
     console.error("Set primary image error:", error)
     return { success: false, error: "Failed to set primary image" }
+  }
+}
+
+export async function getOrders(): Promise<Order[]> {
+  try {
+    const orders = await prisma.order.findMany({
+      include: {
+        orderItems: {
+          include: {
+            productSizeStock: {
+              include: {
+                productColor: {
+                  include: {
+                    product: true,
+                    color: true,
+                    product_images: true,
+                  },
+                },
+                size: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: "desc" },
+    })
+
+    return orders.map((order) => {
+      const items: OrderItem[] = order.orderItems.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        price_at_purchase: item.price_at_purchase.toString(),
+        product: { name: item.productSizeStock.productColor.product.name },
+        color: { name: item.productSizeStock.productColor.color.name },
+        size: { label: item.productSizeStock.size.label },
+        image_urls: item.productSizeStock.productColor.product_images.map((img) => img.image_url),
+        image_url:
+          item.productSizeStock.productColor.product_images[0]?.image_url || "/placeholder.svg?height=64&width=64",
+      }))
+
+      const itemsTotal = items.reduce((sum, item) => sum + Number.parseFloat(item.price_at_purchase) * item.quantity, 0)
+      const shippingCost = Number.parseFloat(order.shipping_cost.toString())
+      const total = itemsTotal + shippingCost
+
+      return {
+        id: order.id,
+        ref_id: order.ref_id,
+        name: order.name,
+        phone: order.phone,
+        city: order.city,
+        status: order.status as Order["status"],
+        created_at: order.created_at.toISOString(),
+        shipping_cost: order.shipping_cost.toString(),
+        shipping_option: order.shipping_option || undefined,
+        total,
+        items,
+      }
+    })
+  } catch (error) {
+    console.error("Error fetching orders:", error)
+    throw new Error("Failed to fetch orders")
+  }
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  newStatus: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled",
+) {
+  try {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: newStatus,
+        confirmed_at: newStatus === "confirmed" ? new Date() : undefined,
+      },
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error updating order status:", error)
+    return { success: false, error: "Failed to update order status" }
+  }
+}
+
+export async function approveOrder(orderId: string) {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { orderItems: true },
+    })
+
+    if (!order) {
+      return { success: false, error: "Order not found" }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Update stock levels
+      for (const item of order.orderItems) {
+        await tx.productSizeStock.update({
+          where: { id: item.product_size_stock_id },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+            reserved_stock: {
+              decrement: item.quantity,
+            },
+          },
+        })
+      }
+
+      // Update order status
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: "confirmed",
+          stock_reduced: true,
+          confirmed_at: new Date(),
+        },
+      })
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error approving order:", error)
+    return { success: false, error: "Failed to approve order" }
+  }
+}
+
+export async function deleteOrder(orderId: string) {
+  try {
+    await prisma.order.delete({
+      where: { id: orderId },
+    })
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting order:", error)
+    return { success: false, error: "Failed to delete order" }
+  }
+}
+
+// Updated function for creating orders (to be used in landing page)
+export const createOrder = async (orderData: {
+  guest_session_id: string
+  name: string
+  phone: string
+  city: string
+  shipping_cost: number
+  shipping_option?: string
+  items: Array<{
+    product_size_stock_id: string
+    quantity: number
+    price_at_purchase: number
+  }>
+}): Promise<{ success: boolean; order?: any; error?: string }> => {
+  try {
+    // Generate unique reference ID
+    const refId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`
+
+    // Check stock availability before creating order
+    for (const item of orderData.items) {
+      const sizeStock = await prisma.productSizeStock.findUnique({
+        where: { id: item.product_size_stock_id }
+      })
+
+      if (!sizeStock) {
+        return { success: false, error: "Product variant not found" }
+      }
+
+      const availableStock = sizeStock.stock - sizeStock.reserved_stock
+      if (availableStock < item.quantity) {
+        return {
+          success: false,
+          error: `Insufficient stock. Available: ${availableStock}, Required: ${item.quantity}`
+        }
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      // Create the order
+      const newOrder = await tx.order.create({
+        data: {
+          guest_session_id: orderData.guest_session_id,
+          ref_id: refId,
+          name: orderData.name,
+          phone: orderData.phone,
+          city: orderData.city,
+          shipping_cost: orderData.shipping_cost,
+          shipping_option: orderData.shipping_option,
+          status: "pending",
+          stock_reserved: true, // Mark as reserved
+          stock_reduced: false  // Not reduced yet
+        }
+      })
+
+      // Create order items and reserve stock
+      for (const item of orderData.items) {
+        await tx.orderItem.create({
+          data: {
+            order_id: newOrder.id,
+            product_size_stock_id: item.product_size_stock_id,
+            quantity: item.quantity,
+            price_at_purchase: item.price_at_purchase
+          }
+        })
+
+        // Reserve stock (don't reduce actual stock yet)
+        await tx.productSizeStock.update({
+          where: { id: item.product_size_stock_id },
+          data: {
+            reserved_stock: {
+              increment: item.quantity
+            }
+          }
+        })
+      }
+
+      return newOrder
+    })
+
+    revalidatePath("/")
+    return { success: true, order: result }
+  } catch (error) {
+    console.error("Create order error:", error)
+    return { success: false, error: "Failed to create order" }
+  }
+}
+
+// Get available stock (actual stock minus reserved stock)
+export const getAvailableStock = async (productSizeStockId: string): Promise<number> => {
+  try {
+    const sizeStock = await prisma.productSizeStock.findUnique({
+      where: { id: productSizeStockId }
+    })
+
+    if (!sizeStock) return 0
+
+    return Math.max(0, sizeStock.stock - sizeStock.reserved_stock)
+  } catch (error) {
+    console.error("Get available stock error:", error)
+    return 0
+  }
+}
+
+// Updated utility function to show actual vs available stock
+export const getStockInfo = async (productSizeStockId: string) => {
+  try {
+    const sizeStock = await prisma.productSizeStock.findUnique({
+      where: { id: productSizeStockId }
+    })
+
+    if (!sizeStock) return null
+
+    return {
+      actualStock: sizeStock.stock,
+      reservedStock: sizeStock.reserved_stock,
+      availableStock: Math.max(0, sizeStock.stock - sizeStock.reserved_stock)
+    }
+  } catch (error) {
+    console.error("Get stock info error:", error)
+    return null
   }
 }

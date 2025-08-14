@@ -7,13 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum OrderStatus {
-  pending
-  shipped
-  delivered
-  cancelled
-}
-
 model User {
   id            String   @id @default(uuid()) @db.Uuid
   name          String   @db.VarChar(255)
@@ -25,13 +18,13 @@ model User {
 }
 
 model Category {
-  id          String     @id @default(uuid()) @db.Uuid
-  name        String
-  slug        String     @unique
-  parentId    String?    @db.Uuid
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Category[] @relation("CategoryHierarchy")
-  products    Product[]
+  id       String     @id @default(uuid()) @db.Uuid
+  name     String
+  slug     String     @unique
+  parentId String?    @db.Uuid
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
 
   @@map("category")
 }
@@ -46,8 +39,8 @@ model Color {
 }
 
 model Size {
-  id                String              @id @default(uuid()) @db.Uuid
-  label             String              @unique @db.VarChar(10)
+  id                String             @id @default(uuid()) @db.Uuid
+  label             String             @unique @db.VarChar(10)
   productSizeStocks ProductSizeStock[]
 
   @@map("sizes")
@@ -56,16 +49,15 @@ model Size {
 model Product {
   id               String         @id @default(uuid()) @db.Uuid
   name             String         @db.VarChar(255)
-  description      String?        @db.Text
+  description      String?
   category_id      String?        @db.Uuid
-  solde_percentage Int?           @db.Integer
+  solde_percentage Int?
   top_price        Boolean        @default(false)
   created_at       DateTime       @default(now())
   updated_at       DateTime       @default(now()) @updatedAt
-
-  category         Category?      @relation(fields: [category_id], references: [id], onDelete: SetNull)
-  productColors    ProductColor[]
   likes            Like[]
+  productColors    ProductColor[]
+  category         Category?      @relation(fields: [category_id], references: [id])
 
   @@map("products")
 }
@@ -74,42 +66,27 @@ model ProductColor {
   id                String             @id @default(uuid()) @db.Uuid
   product_id        String             @db.Uuid
   color_id          String             @db.Uuid
-  image_url         String?            @db.Text
-
+  image_url         String?
+  color             Color              @relation(fields: [color_id], references: [id])
   product           Product            @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  color             Color              @relation(fields: [color_id], references: [id], onDelete: Restrict)
+  product_images    product_images[]
   productSizeStocks ProductSizeStock[]
-  productImages     ProductImage[]     // Add relation to ProductImage
 
   @@unique([product_id, color_id])
   @@map("product_colors")
 }
 
-// New model for handling multiple images per product color
-model ProductImage {
+model ProductSizeStock {
   id               String       @id @default(uuid()) @db.Uuid
   product_color_id String       @db.Uuid
-  image_url        String       @db.Text
-  is_primary       Boolean      @default(false)
-  sort_order       Int          @default(0)
-  created_at       DateTime     @default(now())
-
-  productColor     ProductColor @relation(fields: [product_color_id], references: [id], onDelete: Cascade)
-
-  @@map("product_images")
-}
-
-model ProductSizeStock {
-  id               String      @id @default(uuid()) @db.Uuid
-  product_color_id String      @db.Uuid
-  size_id          String      @db.Uuid
-  stock            Int         @default(0) @db.Integer
-  price            Decimal     @db.Decimal(10, 2)
-
-  productColor     ProductColor @relation(fields: [product_color_id], references: [id], onDelete: Cascade)
-  size             Size         @relation(fields: [size_id], references: [id], onDelete: Restrict)
-  panelItems       PanelItem[]
+  size_id          String       @db.Uuid
+  stock            Int          @default(0)
+  price            Decimal      @db.Decimal(10, 2)
+  reserved_stock   Int          @default(0)
   orderItems       OrderItem[]
+  panelItems       PanelItem[]
+  productColor     ProductColor @relation(fields: [product_color_id], references: [id], onDelete: Cascade)
+  size             Size         @relation(fields: [size_id], references: [id])
 
   @@unique([product_color_id, size_id])
   @@map("product_size_stocks")
@@ -119,10 +96,9 @@ model GuestUser {
   session_id String      @id @db.VarChar(255)
   created_at DateTime    @default(now())
   expires_at DateTime
-
   likes      Like[]
-  panelItems PanelItem[]
   orders     Order[]
+  panelItems PanelItem[]
 
   @@map("guest_users")
 }
@@ -132,7 +108,6 @@ model Like {
   guest_session_id String    @db.VarChar(255)
   product_id       String    @db.Uuid
   liked_at         DateTime  @default(now())
-
   guestUser        GuestUser @relation(fields: [guest_session_id], references: [session_id], onDelete: Cascade)
   product          Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
@@ -144,9 +119,8 @@ model PanelItem {
   id                    String           @id @default(uuid()) @db.Uuid
   guest_session_id      String           @db.VarChar(255)
   product_size_stock_id String           @db.Uuid
-  quantity              Int              @db.Integer
+  quantity              Int
   added_at              DateTime         @default(now())
-
   guestUser             GuestUser        @relation(fields: [guest_session_id], references: [session_id], onDelete: Cascade)
   productSizeStock      ProductSizeStock @relation(fields: [product_size_stock_id], references: [id], onDelete: Cascade)
 
@@ -160,14 +134,17 @@ model Order {
   ref_id           String      @unique @db.VarChar(50)
   name             String      @db.VarChar(255)
   phone            String      @db.VarChar(50)
-  city          String      @db.Text
-  shipping_cost    Decimal     @default(0) @db.Decimal(10, 2)
-  shipping_option  String?     @db.VarChar(100)
   status           OrderStatus @default(pending)
   created_at       DateTime    @default(now())
-
-  guestUser        GuestUser   @relation(fields: [guest_session_id], references: [session_id], onDelete: Cascade)
+  city             String
+  shipping_cost    Decimal     @default(0) @db.Decimal(10, 2)
+  shipping_option  String?     @db.VarChar(100)
+  approved_by      String?     @db.VarChar(255)
+  confirmed_at     DateTime?
+  stock_reduced    Boolean     @default(false)
+  stock_reserved   Boolean     @default(false)
   orderItems       OrderItem[]
+  guestUser        GuestUser   @relation(fields: [guest_session_id], references: [session_id], onDelete: Cascade)
 
   @@map("orders")
 }
@@ -176,12 +153,29 @@ model OrderItem {
   id                    String           @id @default(uuid()) @db.Uuid
   order_id              String           @db.Uuid
   product_size_stock_id String           @db.Uuid
-  quantity              Int              @db.Integer
+  quantity              Int
   price_at_purchase     Decimal          @db.Decimal(10, 2)
-
   order                 Order            @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  productSizeStock      ProductSizeStock @relation(fields: [product_size_stock_id], references: [id], onDelete: Restrict)
+  productSizeStock      ProductSizeStock @relation(fields: [product_size_stock_id], references: [id])
 
   @@unique([order_id, product_size_stock_id])
   @@map("order_items")
+}
+
+model product_images {
+  id               String       @id @db.Uuid
+  product_color_id String       @db.Uuid
+  image_url        String
+  is_primary       Boolean      @default(false)
+  sort_order       Int          @default(0)
+  created_at       DateTime     @default(now())
+  product_colors   ProductColor @relation(fields: [product_color_id], references: [id], onDelete: Cascade)
+}
+
+enum OrderStatus {
+  pending
+  shipped
+  delivered
+  cancelled
+  confirmed
 }
