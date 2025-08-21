@@ -569,9 +569,9 @@ export const updateProduct = async (
         }
       })
 
-      // Delete existing product images
+      // Delete existing product images - Fixed the model name
       for (const productColor of existingProductColors) {
-        await tx.productImage.deleteMany({
+        await tx.product_images.deleteMany({
           where: { product_color_id: productColor.id }
         })
       }
@@ -610,8 +610,9 @@ export const updateProduct = async (
           for (let i = 0; i < colorData.image_urls.length; i++) {
             const imageUrl = colorData.image_urls[i]
             if (imageUrl && imageUrl.trim()) {
-              await tx.productImage.create({
+              await tx.product_images.create({
                 data: {
+                  id: crypto.randomUUID(), // Add explicit ID generation
                   product_color_id: productColor.id,
                   image_url: imageUrl,
                   is_primary: i === 0, // First image is primary
