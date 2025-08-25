@@ -521,7 +521,7 @@ export function OrderManagement() {
                               </span>
                             </div>
                             <span className="font-medium">
-                              {shippingCost > 0 ? `$${shippingCost.toFixed(2)}` : "Free"}
+                              {shippingCost > 0 ? `${shippingCost.toFixed(2)} MAD` : "Free"}
                             </span>
                           </div>
 

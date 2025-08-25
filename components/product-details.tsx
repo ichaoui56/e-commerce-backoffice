@@ -90,7 +90,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
               <span className="text-white font-bold text-sm">
-                $
+                
                 {product.variants?.reduce((min: number, variant: any) => {
                   const variantMin =
                     variant.sizeStocks?.reduce(
@@ -98,7 +98,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                       Number.POSITIVE_INFINITY,
                     ) || Number.POSITIVE_INFINITY
                   return Math.min(min, variantMin)
-                }, Number.POSITIVE_INFINITY) || 0}
+                }, Number.POSITIVE_INFINITY) || 0} MAD
               </span>
             </div>
             <div className="text-sm font-semibold text-orange-700">Starting Price</div>
@@ -212,8 +212,8 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                             total stock
                           </Badge>
                           <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-semibold">
-                            ${Math.min(...(variant.sizeStocks?.map((ss: any) => Number(ss.price)) || [0]))} - $
-                            {Math.max(...(variant.sizeStocks?.map((ss: any) => Number(ss.price)) || [0]))}
+                            {Math.min(...(variant.sizeStocks?.map((ss: any) => Number(ss.price)) || [0]))} MAD -
+                            {Math.max(...(variant.sizeStocks?.map((ss: any) => Number(ss.price)) || [0]))} MAD
                           </Badge>
                         </div>
                       </div>
@@ -250,7 +250,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                                 </TableCell>
                                 <TableCell className="py-4">
                                   <span className="font-bold text-lg text-gray-800">
-                                    ${Number(sizeStock.price).toFixed(2)}
+                                    {Number(sizeStock.price).toFixed(2)} MAD
                                   </span>
                                 </TableCell>
                                 <TableCell className="py-4">

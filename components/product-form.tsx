@@ -11,9 +11,9 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, DollarSign } from 'lucide-react'
 import { useRouter } from "next/navigation"
-import { ImageUpload } from "@/components/ImageUpload" // Import the new component
+import { ImageUpload } from "@/components/ImageUpload"
 import {
   getCategories,
   getColors,
@@ -35,14 +35,13 @@ interface ColorSize {
   id: string
   label: string
   stock: number
-  price: number
 }
 
 interface SelectedColor {
   id: string
   name: string
   hex: string
-  image_urls: string[] // Changed from image_url to image_urls array
+  image_urls: string[]
   sizes: ColorSize[]
 }
 
@@ -54,6 +53,7 @@ export function ProductForm({ product }: ProductFormProps) {
     name: product?.name || "",
     description: product?.description || "",
     category_id: product?.category_id || "",
+    base_price: product?.base_price || "", // New single price field
     solde_percentage: product?.solde_percentage || "",
     top_price: product?.top_price || false,
   })
@@ -75,10 +75,14 @@ export function ProductForm({ product }: ProductFormProps) {
 
   useEffect(() => {
     if (product) {
+      // Get the base price from the first variant (since all variants now have the same price)
+      const firstVariantPrice = product?.variants?.[0]?.sizeStocks?.[0]?.price || ""
+      
       setFormData({
         name: product.name || "",
         description: product.description || "",
         category_id: product.category_id || "",
+        base_price: firstVariantPrice.toString() || "",
         solde_percentage: product.solde_percentage || "",
         top_price: product.top_price || false,
       })
@@ -101,7 +105,6 @@ export function ProductForm({ product }: ProductFormProps) {
         product.variants.forEach((variant: any) => {
           const existingColor = existingColors.find((c) => c.id === variant.color_id)
           if (existingColor) {
-            // Add image URL to existing color if not already present
             if (variant.image_url && !existingColor.image_urls.includes(variant.image_url)) {
               existingColor.image_urls.push(variant.image_url)
             }
@@ -110,7 +113,6 @@ export function ProductForm({ product }: ProductFormProps) {
                 id: sizeStock.size_id,
                 label: sizeStock.size?.label || "",
                 stock: sizeStock.stock,
-                price: Number(sizeStock.price),
               })
             })
           } else {
@@ -118,13 +120,12 @@ export function ProductForm({ product }: ProductFormProps) {
               id: sizeStock.size_id,
               label: sizeStock.size?.label || "",
               stock: sizeStock.stock,
-              price: Number(sizeStock.price),
             }))
             existingColors.push({
               id: variant.color_id,
               name: variant.color?.name || "",
               hex: variant.color?.hex || "",
-              image_urls: variant.image_url ? [variant.image_url] : [], // Convert single URL to array
+              image_urls: variant.image_url ? [variant.image_url] : [],
               sizes: colorSizes,
             })
           }
@@ -144,7 +145,7 @@ export function ProductForm({ product }: ProductFormProps) {
         id: color.id,
         name: color.name,
         hex: color.hex || "#000000",
-        image_urls: [], // Initialize with empty array
+        image_urls: [],
         sizes: [],
       }])
     }
@@ -154,7 +155,6 @@ export function ProductForm({ product }: ProductFormProps) {
     setSelectedColors((prev) => prev.filter((c) => c.id !== colorId))
   }
 
-  // New function to handle image changes from ImageUpload component
   const handleImagesChange = (colorId: string, imageUrls: string[]) => {
     setSelectedColors((prev) =>
       prev.map((color) => 
@@ -181,7 +181,6 @@ export function ProductForm({ product }: ProductFormProps) {
               id: size.id,
               label: size.label,
               stock: 0,
-              price: 0,
             }],
           }
         }
@@ -209,7 +208,6 @@ export function ProductForm({ product }: ProductFormProps) {
                   id: result.size!.id,
                   label: result.size!.label,
                   stock: 0,
-                  price: 0,
                 }],
               }
             }
@@ -239,13 +237,13 @@ export function ProductForm({ product }: ProductFormProps) {
     )
   }
 
-  const updateColorSize = (colorId: string, sizeId: string, field: "stock" | "price", value: number) => {
+  const updateColorSizeStock = (colorId: string, sizeId: string, stock: number) => {
     setSelectedColors((prev) =>
       prev.map((color) => {
         if (color.id === colorId) {
           return {
             ...color,
-            sizes: color.sizes.map((size) => (size.id === sizeId ? { ...size, [field]: value } : size)),
+            sizes: color.sizes.map((size) => (size.id === sizeId ? { ...size, stock } : size)),
           }
         }
         return color
@@ -274,7 +272,7 @@ export function ProductForm({ product }: ProductFormProps) {
           id: result.color.id,
           name: result.color.name,
           hex: result.color.hex || "#000000",
-          image_urls: [], // Initialize with empty array
+          image_urls: [],
           sizes: [],
         }
         setSelectedColors((prev) => [...prev, newColor])
@@ -295,8 +293,15 @@ export function ProductForm({ product }: ProductFormProps) {
     setIsLoading(true)
 
     try {
-      if (!formData.name || !formData.category_id || selectedColors.length === 0) {
-        alert("Please fill in all required fields and select at least one color.")
+      if (!formData.name || !formData.category_id || !formData.base_price || selectedColors.length === 0) {
+        alert("Please fill in all required fields including price and select at least one color.")
+        setIsLoading(false)
+        return
+      }
+
+      const basePrice = Number(formData.base_price)
+      if (basePrice <= 0) {
+        alert("Please enter a valid price greater than 0.")
         setIsLoading(false)
         return
       }
@@ -308,7 +313,7 @@ export function ProductForm({ product }: ProductFormProps) {
         return
       }
 
-      // Transform data to work with multiple images
+      // Transform data to use single price for all variants
       const colorsData = selectedColors.flatMap((color) => 
         color.image_urls.length > 0 
           ? color.image_urls.map((imageUrl) => ({
@@ -317,7 +322,7 @@ export function ProductForm({ product }: ProductFormProps) {
               sizes: color.sizes.map((size) => ({
                 size_id: size.id,
                 stock: Number(size.stock) || 0,
-                price: Number(size.price) || 0,
+                price: basePrice, // Use the single base price for all sizes
               })),
             }))
           : [{
@@ -326,7 +331,7 @@ export function ProductForm({ product }: ProductFormProps) {
               sizes: color.sizes.map((size) => ({
                 size_id: size.id,
                 stock: Number(size.stock) || 0,
-                price: Number(size.price) || 0,
+                price: basePrice, // Use the single base price for all sizes
               })),
             }]
       )
@@ -359,6 +364,12 @@ export function ProductForm({ product }: ProductFormProps) {
 
   const getTotalVariants = () => {
     return selectedColors.reduce((total, color) => total + color.sizes.length, 0)
+  }
+
+  const getDiscountedPrice = () => {
+    const basePrice = Number(formData.base_price) || 0
+    const discount = Number(formData.solde_percentage) || 0
+    return basePrice - (basePrice * discount / 100)
   }
 
   return (
@@ -444,34 +455,87 @@ export function ProductForm({ product }: ProductFormProps) {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="discount" className="text-sm font-semibold text-gray-700">
-                  Discount (%)
-                </Label>
-                <Input
-                  id="discount"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.solde_percentage}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, solde_percentage: e.target.value }))}
-                  placeholder="0"
-                  className="h-12 border-2 border-gray-200 focus:border-[#e94491] transition-colors"
-                />
-              </div>
+            {/* Pricing Section */}
+            <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 mt-6">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-3 text-lg">
+                  <DollarSign className="w-6 h-6 text-green-600" />
+                  Product Pricing
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="base-price" className="text-sm font-semibold text-gray-700">
+                      Product Price (MAD) *
+                    </Label>
+                    <Input
+                      id="base-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.base_price}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, base_price: e.target.value }))}
+                      placeholder="0.00"
+                      className="h-12 border-2 border-gray-200 focus:border-[#e94491] transition-colors"
+                      required
+                    />
+                    <p className="text-xs text-gray-500">This price will apply to all variants</p>
+                  </div>
 
-              <div className="flex items-center space-x-3 pt-6 sm:pt-8">
-                <Switch
-                  id="top-product"
-                  checked={formData.top_price}
-                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, top_price: checked }))}
-                  className="data-[state=checked]:bg-[#e94491] h-5"
-                />
-                <Label htmlFor="top-product" className="text-sm font-semibold text-gray-700">
-                  Mark as Top Product
-                </Label>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="discount" className="text-sm font-semibold text-gray-700">
+                      Discount (%)
+                    </Label>
+                    <Input
+                      id="discount"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.solde_percentage}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, solde_percentage: e.target.value }))}
+                      placeholder="0"
+                      className="h-12 border-2 border-gray-200 focus:border-[#e94491] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Price Preview */}
+                {formData.base_price && (
+                  <div className="bg-white p-4 rounded-lg border border-green-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold text-gray-700">Final Price:</span>
+                        <span className="text-2xl font-bold text-green-600">
+                          {getDiscountedPrice().toFixed(2)} MAD
+                        </span>
+                        {formData.solde_percentage && Number(formData.solde_percentage) > 0 && (
+                          <span className="text-lg text-gray-500 line-through">
+                            {Number(formData.base_price).toFixed(2)} MAD
+                          </span>
+                        )}
+                      </div>
+                      {formData.solde_percentage && Number(formData.solde_percentage) > 0 && (
+                        <Badge className="bg-red-500 text-white px-3 py-1">
+                          -{formData.solde_percentage}% OFF
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center space-x-3 pt-4">
+              <Switch
+                id="top-product"
+                checked={formData.top_price}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, top_price: checked }))}
+                className="data-[state=checked]:bg-[#e94491] h-5"
+              />
+              <Label htmlFor="top-product" className="text-sm font-semibold text-gray-700">
+                Mark as Top Product
+              </Label>
             </div>
           </CardContent>
         </Card>
@@ -651,6 +715,14 @@ export function ProductForm({ product }: ProductFormProps) {
                               <p className="text-sm text-gray-600 flex items-center gap-2">
                                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                                 {color.sizes.length} sizes, {color.image_urls.length} images
+                                {formData.base_price && (
+                                  <>
+                                    <span className="mx-2">•</span>
+                                    <span className="font-semibold text-green-600">
+                                      {getDiscountedPrice().toFixed(2)} MAD
+                                    </span>
+                                  </>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -678,7 +750,7 @@ export function ProductForm({ product }: ProductFormProps) {
 
                         {/* Size Management */}
                         <div className="space-y-4">
-                          <Label className="text-sm font-semibold text-gray-700">Size & Pricing for {color.name}</Label>
+                          <Label className="text-sm font-semibold text-gray-700">Size & Stock for {color.name}</Label>
                           
                           {/* Add Size Options */}
                           <div className="flex flex-col sm:flex-row gap-3">
@@ -754,17 +826,17 @@ export function ProductForm({ product }: ProductFormProps) {
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-4">
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={size.price}
-                                            onChange={(e) =>
-                                              updateColorSize(color.id, size.id, "price", Number(e.target.value))
-                                            }
-                                            className="w-full h-10 border-2 border-gray-200 focus:border-[#e94491]"
-                                            placeholder="0.00"
-                                          />
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-lg font-bold text-green-600">
+                                              {formData.base_price ? getDiscountedPrice().toFixed(2) : '0.00'}
+                                            </span>
+                                            <span className="text-sm text-gray-500">MAD</span>
+                                            {formData.solde_percentage && Number(formData.solde_percentage) > 0 && (
+                                              <span className="text-sm text-gray-400 line-through">
+                                                {formData.base_price || '0.00'}
+                                              </span>
+                                            )}
+                                          </div>
                                         </TableCell>
                                         <TableCell className="py-4">
                                           <Input
@@ -772,7 +844,7 @@ export function ProductForm({ product }: ProductFormProps) {
                                             min="0"
                                             value={size.stock}
                                             onChange={(e) =>
-                                              updateColorSize(color.id, size.id, "stock", Number(e.target.value))
+                                              updateColorSizeStock(color.id, size.id, Number(e.target.value))
                                             }
                                             className="w-full h-10 border-2 border-gray-200 focus:border-[#e94491]"
                                             placeholder="0"
@@ -825,7 +897,7 @@ export function ProductForm({ product }: ProductFormProps) {
           </Button>
           <Button
             type="submit"
-            disabled={isLoading || selectedColors.length === 0 || getTotalVariants() === 0}
+            disabled={isLoading || !formData.base_price || selectedColors.length === 0 || getTotalVariants() === 0}
             className="bg-gradient-to-r from-[#e94491] to-[#f472b6] hover:from-[#d63384] to-[#e94491] h-12 px-6 sm:px-8 font-semibold shadow-lg disabled:opacity-50 order-1 sm:order-2"
           >
             {isLoading ? (
