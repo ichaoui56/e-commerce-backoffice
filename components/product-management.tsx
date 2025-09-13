@@ -61,7 +61,7 @@ export function ProductManagement() {
   }
 
   const filteredProducts = products.filter(
-    (product) =>
+    (product: any) =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category?.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
@@ -104,7 +104,7 @@ export function ProductManagement() {
               <Input
                 placeholder="Search products..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e: any) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -135,7 +135,7 @@ export function ProductManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product: any) => (
                   <TableRow key={product.id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="flex items-center gap-3">
