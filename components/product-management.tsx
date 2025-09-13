@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Search, Edit, Trash2, Eye, Filter, Download } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Eye, Filter, Download } from "lucide-react"
 import { ProductDetails } from "@/components/product-details"
 import { getProducts, deleteProduct } from "@/lib/actions/server-actions"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { OptimizedImage } from "./optimized-image"
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -141,13 +141,15 @@ export function ProductManagement() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           {product.variants?.[0]?.image_url ? (
-                            <Image
-                              src={product.variants[0].image_url || "/placeholder.svg"}
-                              alt={product.name}
-                              width={48}
-                              height={48}
-                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover"
-                            />
+                             <OptimizedImage
+                             src={product.variants[0].image_url || "/placeholder.svg"}
+                             alt={product.name}
+                             width={48}
+                             height={48}
+                             className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover"
+                             sizes="48px"
+                             quality={75}
+                           />
                           ) : (
                             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-200 rounded-lg" />
                           )}
@@ -177,17 +179,15 @@ export function ProductManagement() {
                           product.totalStock === 0
                             ? "text-red-600"
                             : product.totalStock < 20
-                            ? "text-yellow-600"
-                            : "text-green-600"
+                              ? "text-yellow-600"
+                              : "text-green-600"
                         }`}
                       >
                         {product.totalStock}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(product.status)}>
-                        {product.status.replace("_", " ")}
-                      </Badge>
+                      <Badge className={getStatusColor(product.status)}>{product.status.replace("_", " ")}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

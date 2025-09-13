@@ -79,6 +79,59 @@ const getStatusIcon = (status: string) => {
   }
 }
 
+// Optimized Image Component for Order Details
+const OrderItemImage = ({ imageUrls, imageUrl, productName, className = "" }: {
+  imageUrls?: string[]
+  imageUrl?: string
+  productName: string
+  className?: string
+}) => {
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null)
+  const [imageError, setImageError] = useState(false)
+
+  useEffect(() => {
+    // Priority: Use first image from image_urls array, fallback to image_url, then placeholder
+    let finalImageUrl = null
+    
+    if (imageUrls && imageUrls.length > 0) {
+      finalImageUrl = imageUrls[0]
+    } else if (imageUrl && imageUrl !== "/placeholder.svg?height=64&width=64") {
+      finalImageUrl = imageUrl
+    }
+    
+    setCurrentImageUrl(finalImageUrl)
+    setImageError(false)
+  }, [imageUrls, imageUrl])
+
+  const handleImageError = () => {
+    console.warn("Image failed to load:", currentImageUrl)
+    setImageError(true)
+  }
+
+  const handleImageLoad = () => {
+    console.log("Image loaded successfully:", currentImageUrl)
+    setImageError(false)
+  }
+
+  if (!currentImageUrl || imageError) {
+    return (
+      <div className={`bg-gray-200 rounded-md flex items-center justify-center ${className}`}>
+        <Package className="w-6 h-6 text-gray-400" />
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={currentImageUrl}
+      alt={productName}
+      className={`rounded-md object-cover ${className}`}
+      onError={handleImageError}
+      onLoad={handleImageLoad}
+    />
+  )
+}
+
 export function OrderManagement() {
   const [orders, setOrders] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -94,6 +147,7 @@ export function OrderManagement() {
   const loadOrders = async () => {
     try {
       const data = await getOrders()
+      console.log("Orders data:", data) // Debug log
       setOrders(data)
     } catch (error) {
       console.error("Failed to load orders:", error)
@@ -135,6 +189,7 @@ export function OrderManagement() {
   }
 
   const openViewDialog = (order: any) => {
+    console.log("Selected order:", order) // Debug log
     setSelectedOrder(order)
     setIsViewDialogOpen(true)
   }
@@ -256,7 +311,7 @@ export function OrderManagement() {
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <div className="font-medium">${order.total.toFixed(2)}</div>
+                      <div className="font-medium">{order.total.toFixed(2)} MAD</div>
                     </TableCell>
                     <TableCell>
                       <Badge className={`${getStatusColor(order.status)} flex items-center gap-1 w-fit border`}>
@@ -420,68 +475,38 @@ export function OrderManagement() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {selectedOrder.items.map((item: any, index: number) => (
-                        <div key={item.id} className="flex items-start gap-4 p-4 border rounded-lg">
-                          <div className="flex-shrink-0">
-                            {(() => {
-                              // Helper function to get the best available image URL
-                              const getImageUrl = () => {
-                                if (item.image_urls && item.image_urls.length > 0) {
-                                  return item.image_urls[0]
-                                }
-                                if (item.image_url) {
-                                  return item.image_url
-                                }
-                                return null
-                              }
-
-                              const imageUrl = getImageUrl()
-
-                              return imageUrl ? (
-                                <img
-                                  src={imageUrl || "/placeholder.svg"}
-                                  alt={item.product.name}
-                                  className="w-16 h-16 object-cover rounded-md"
-                                  onError={(e) => {
-                                    // If image fails to load, hide img and show placeholder
-                                    const target = e.target as HTMLImageElement
-                                    target.style.display = "none"
-                                    const placeholder = target.parentElement?.querySelector(
-                                      ".image-placeholder",
-                                    ) as HTMLElement
-                                    if (placeholder) {
-                                      placeholder.style.display = "flex"
-                                    }
-                                  }}
-                                />
-                              ) : null
-                            })()}
-                            <div
-                              className={`image-placeholder w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center ${
-                                (item.image_urls && item.image_urls.length > 0) || item.image_url ? "hidden" : ""
-                              }`}
-                            >
-                              <Package className="w-6 h-6 text-gray-400" />
+                      {selectedOrder.items.map((item: any, index: number) => {
+                        console.log("Order item:", item) // Debug log
+                        
+                        return (
+                          <div key={item.id || index} className="flex items-start gap-4 p-4 border rounded-lg">
+                            <div className="flex-shrink-0">
+                              <OrderItemImage
+                                imageUrls={item.image_urls}
+                                imageUrl={item.image_url}
+                                productName={item.product.name}
+                                className="w-16 h-16 object-cover rounded-md"
+                              />
                             </div>
-                          </div>
-                          <div className="flex-grow">
-                            <h4 className="font-medium text-gray-900">{item.product.name}</h4>
-                            <div className="text-sm text-gray-500 space-y-1">
-                              <div className="flex items-center gap-4">
-                                <span>Color: {item.color.name}</span>
-                                <span>Size: {item.size.label}</span>
-                                <span>Qty: {item.quantity}</span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span>Unit Price: ${Number.parseFloat(item.price_at_purchase).toFixed(2)}</span>
-                                <span className="font-medium">
-                                  Subtotal: ${(Number.parseFloat(item.price_at_purchase) * item.quantity).toFixed(2)}
-                                </span>
+                            <div className="flex-grow">
+                              <h4 className="font-medium text-gray-900">{item.product.name}</h4>
+                              <div className="text-sm text-gray-500 space-y-1">
+                                <div className="flex items-center gap-4">
+                                  <span>Color: {item.color.name}</span>
+                                  <span>Size: {item.size.label}</span>
+                                  <span>Qty: {item.quantity}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>Unit Price: {Number.parseFloat(item.price_at_purchase).toFixed(2)} MAD</span>
+                                  <span className="font-medium">
+                                    Subtotal: {(Number.parseFloat(item.price_at_purchase) * item.quantity).toFixed(2)} MAD
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -505,7 +530,7 @@ export function OrderManagement() {
                               <ShoppingCart className="w-4 h-4 text-gray-500" />
                               <span className="text-gray-700">Products Subtotal:</span>
                             </div>
-                            <span className="font-medium">${subtotal.toFixed(2)}</span>
+                            <span className="font-medium">{subtotal.toFixed(2)} MAD</span>
                           </div>
 
                           {/* Shipping Cost */}
@@ -534,7 +559,7 @@ export function OrderManagement() {
                               <DollarSign className="w-5 h-5 text-green-600" />
                               <span className="text-lg font-semibold text-gray-900">Grand Total:</span>
                             </div>
-                            <span className="text-lg font-bold text-green-600">${grandTotal.toFixed(2)}</span>
+                            <span className="text-lg font-bold text-green-600">{grandTotal.toFixed(2)} MAD</span>
                           </div>
 
                           {/* Additional Info */}

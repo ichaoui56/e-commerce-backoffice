@@ -1,10 +1,12 @@
 "use client"
 
-import React, { useState } from "react"
+import type React from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, X, Image as ImageIcon } from "lucide-react"
-import Image from "next/image"
+import { Upload, X, ImageIcon } from "lucide-react"
+import { OptimizedImage } from "@/components/optimized-image"
+import { compressImage } from "@/lib/utils/image-compression"
 
 interface ImageUploadProps {
   colorId: string
@@ -14,39 +16,41 @@ interface ImageUploadProps {
   maxImages?: number
 }
 
-export function ImageUpload({ 
-  colorId, 
-  colorName, 
-  existingImages = [], 
-  onImagesChange, 
-  maxImages = 5 
+export function ImageUpload({
+  colorId,
+  colorName,
+  existingImages = [],
+  onImagesChange,
+  maxImages = 5,
 }: ImageUploadProps) {
   const [images, setImages] = useState<string[]>(existingImages)
   const [uploading, setUploading] = useState(false)
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
 
   const uploadToServer = async (file: File): Promise<string> => {
+    const compressedFile = await compressImage(file, 1200, 0.8)
+
     const formData = new FormData()
-    formData.set("file", file)
-    
+    formData.set("file", compressedFile)
+
     const response = await fetch("/api/files", {
       method: "POST",
       body: formData,
     })
-    
+
     if (!response.ok) {
       throw new Error("Failed to upload file")
     }
-    
+
     const url = await response.json()
     return url
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    
+
     if (files.length === 0) return
-    
+
     // Check if adding these files would exceed the limit
     if (images.length + files.length > maxImages) {
       alert(`You can only upload up to ${maxImages} images per color`)
@@ -60,16 +64,15 @@ export function ImageUpload({
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         setUploadingIndex(images.length + i)
-        
+
         // Validate file type
-        if (!file.type.startsWith('image/')) {
+        if (!file.type.startsWith("image/")) {
           alert(`File ${file.name} is not an image`)
           continue
         }
 
-        // Validate file size (5MB limit)
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`File ${file.name} is too large. Maximum size is 5MB`)
+        if (file.size > 3 * 1024 * 1024) {
+          alert(`File ${file.name} is too large. Maximum size is 3MB (will be compressed)`)
           continue
         }
 
@@ -80,7 +83,6 @@ export function ImageUpload({
       const updatedImages = [...images, ...newImageUrls]
       setImages(updatedImages)
       onImagesChange(colorId, updatedImages)
-      
     } catch (error) {
       console.error("Upload error:", error)
       alert("Failed to upload one or more images")
@@ -100,12 +102,11 @@ export function ImageUpload({
 
   const canUploadMore = images.length < maxImages
 
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-semibold text-gray-700">
-          Product Images for {colorName}
-        </label>
+        <label className="text-sm font-semibold text-gray-700">Product Images for {colorName}</label>
         <span className="text-xs text-gray-500">
           {images.length}/{maxImages} images
         </span>
@@ -118,11 +119,13 @@ export function ImageUpload({
           <Card key={index} className="relative group overflow-hidden">
             <CardContent className="p-0">
               <div className="relative aspect-square">
-                <Image
+                <OptimizedImage
                   src={imageUrl}
                   alt={`${colorName} image ${index + 1}`}
                   fill
                   className="object-cover transition-transform group-hover:scale-105"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  quality={75}
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Button
@@ -165,9 +168,7 @@ export function ImageUpload({
               <label htmlFor={`upload-${colorId}`} className="cursor-pointer">
                 <div className="aspect-square flex flex-col items-center justify-center text-gray-500 group-hover:text-[#e94491] transition-colors">
                   <Upload className="w-8 h-8 mb-2" />
-                  <span className="text-xs text-center px-2">
-                    Add Image
-                  </span>
+                  <span className="text-xs text-center px-2">Add Image</span>
                 </div>
               </label>
               <input
@@ -203,7 +204,7 @@ export function ImageUpload({
             <Button
               type="button"
               variant="outline"
-              className="w-full border-2 border-dashed border-[#e94491] text-[#e94491] hover:bg-[#e94491]/10"
+              className="w-full border-2 border-dashed border-[#e94491] text-[#e94491] hover:bg-[#e94491]/10 bg-transparent"
               asChild
             >
               <span>

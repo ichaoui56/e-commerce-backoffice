@@ -981,6 +981,7 @@ export const setPrimaryImage = async (
   }
 }
 
+// Fixed getOrders function for your server-actions.ts
 export async function getOrders(): Promise<Order[]> {
   try {
     const orders = await prisma.order.findMany({
@@ -993,7 +994,9 @@ export async function getOrders(): Promise<Order[]> {
                   include: {
                     product: true,
                     color: true,
-                    product_images: true,
+                    product_images: {
+                      orderBy: { sort_order: 'asc' } // Ensure proper ordering
+                    },
                   },
                 },
                 size: true,
@@ -1005,18 +1008,31 @@ export async function getOrders(): Promise<Order[]> {
       orderBy: { created_at: "desc" },
     })
 
-    return orders.map((order) => {
-      const items: OrderItem[] = order.orderItems.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        price_at_purchase: item.price_at_purchase.toString(),
-        product: { name: item.productSizeStock.productColor.product.name },
-        color: { name: item.productSizeStock.productColor.color.name },
-        size: { label: item.productSizeStock.size.label },
-        image_urls: item.productSizeStock.productColor.product_images.map((img) => img.image_url),
-        image_url:
-          item.productSizeStock.productColor.product_images[0]?.image_url || "/placeholder.svg?height=64&width=64",
-      }))
+    return orders.map((order: any) => {
+      const items: OrderItem[] = order.orderItems.map((item: any) => {
+        // Get all images for this product color
+        const productImages = item.productSizeStock.productColor.product_images || []
+        
+        // Create image URLs array from product_images
+        const imageUrls = productImages.map((img: any) => img.image_url).filter(Boolean)
+        
+        // Fallback to productColor image_url if no product_images
+        const fallbackImageUrl = item.productSizeStock.productColor.image_url
+        
+        // Final image URLs array with fallbacks
+        const finalImageUrls = imageUrls.length > 0 ? imageUrls : (fallbackImageUrl ? [fallbackImageUrl] : [])
+
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          price_at_purchase: item.price_at_purchase.toString(),
+          product: { name: item.productSizeStock.productColor.product.name },
+          color: { name: item.productSizeStock.productColor.color.name },
+          size: { label: item.productSizeStock.size.label },
+          image_urls: finalImageUrls, // This is the key fix
+          image_url: finalImageUrls[0] || "/placeholder.svg?height=64&width=64", // First image or placeholder
+        }
+      })
 
       const itemsTotal = items.reduce((sum, item) => sum + Number.parseFloat(item.price_at_purchase) * item.quantity, 0)
       const shippingCost = Number.parseFloat(order.shipping_cost.toString())
@@ -1074,7 +1090,7 @@ export async function approveOrder(orderId: string) {
       return { success: false, error: "Order not found" }
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Update stock levels
       for (const item of order.orderItems) {
         await tx.productSizeStock.update({

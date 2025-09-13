@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Image from "next/image"
+import { OptimizedImage } from "./optimized-image"
 
 interface ProductDetailsProps {
   product: any
@@ -90,7 +90,6 @@ export function ProductDetails({ product }: ProductDetailsProps) {
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
               <span className="text-white font-bold text-sm">
-                
                 {product.variants?.reduce((min: number, variant: any) => {
                   const variantMin =
                     variant.sizeStocks?.reduce(
@@ -98,7 +97,8 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                       Number.POSITIVE_INFINITY,
                     ) || Number.POSITIVE_INFINITY
                   return Math.min(min, variantMin)
-                }, Number.POSITIVE_INFINITY) || 0} MAD
+                }, Number.POSITIVE_INFINITY) || 0}{" "}
+                MAD
               </span>
             </div>
             <div className="text-sm font-semibold text-orange-700">Starting Price</div>
@@ -178,13 +178,15 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                       <div className="relative">
                         <div className="w-24 h-24 bg-gray-100 rounded-xl flex items-center justify-center shadow-lg">
                           {variant.image_url ? (
-                            <Image
-                              src={variant.image_url || "/placeholder.svg"}
-                              alt={`${product.name} - ${variant.color?.name}`}
-                              width={96}
-                              height={96}
-                              className="w-24 h-24 rounded-xl object-cover border-2 border-white"
-                            />
+                            <OptimizedImage
+                            src={variant.image_url || "/placeholder.svg"}
+                            alt={`${product.name} - ${variant.color?.name}`}
+                            width={96}
+                            height={96}
+                            className="w-24 h-24 rounded-xl object-cover border-2 border-white"
+                            sizes="96px"
+                            quality={75}
+                          />
                           ) : (
                             <div className="w-24 h-24 bg-gray-200 rounded-xl flex items-center justify-center">
                               <span className="text-gray-400 text-xs">No Image</span>
