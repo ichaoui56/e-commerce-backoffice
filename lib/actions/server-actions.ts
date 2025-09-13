@@ -1131,6 +1131,7 @@ export async function deleteOrder(orderId: string) {
       where: { id: orderId },
     })
 
+    
     revalidatePath("/")
     return { success: true }
   } catch (error) {
